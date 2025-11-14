@@ -16,7 +16,7 @@ const { Users } = models;
 const createCSPMiddleware = require("./cspMiddleware");
 const createClickjackingMiddleware = require("./clickjackingMiddleware");
 const { securityHeaders } = require("./securityHeaders"); // 🛡️ Import security headers
-const frontendBuildPath = path.join(__dirname, "../frontend/build");
+//const frontendBuildPath = path.join(__dirname, "../frontend/build");
 const http = require("http");
 const socketIO = require("socket.io");
 const { initializeSocketIO } = require("./socketManager");
@@ -97,7 +97,7 @@ app.use((req, res, next) => {
 app.use(createClickjackingMiddleware(path.join(__dirname, "public")));
 
 // ✅ CSP middleware serve frontend build (đã có express.static bên trong)
-app.use(createCSPMiddleware(frontendBuildPath, { io }));
+//app.use(createCSPMiddleware(frontendBuildPath, { io }));
 
 // Request logger
 app.use((req, res, next) => {
