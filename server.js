@@ -54,6 +54,14 @@ process.on("unhandledRejection", (reason, p) => {
   console.error("UNHANDLED REJECTION at:", p, "reason:", reason);
 });
 
+app.get("/", (req, res) => {
+  res.json({
+    message: "SuLi Coffee API Server đang chạy OK!",
+    status: "running",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 /* ---------------- MIDDLEWARE ---------------- */
 app.use(
   cors({
@@ -93,11 +101,19 @@ app.use((req, res, next) => {
   })(req, res, next);
 });
 
-// 🛡️ Clickjacking Protection Demo Routes (có headers riêng cho demo)
-app.use(createClickjackingMiddleware(path.join(__dirname, "public")));
+// 🛡️ Clickjacking Protection Demo Routes (chỉ cho /clickjacking route)
+app.use(
+  "/clickjacking",
+  createClickjackingMiddleware(path.join(__dirname, "public"))
+);
 
-// ✅ CSP middleware serve frontend build (đã có express.static bên trong)
-//app.use(createCSPMiddleware(frontendBuildPath, { io }));
+// ✅ CSP middleware - khôi phục để serve demo pages
+app.use(
+  createCSPMiddleware(path.join(__dirname, "public"), {
+    io,
+    backendUrl: process.env.BACKEND_URL || "http://localhost:5000",
+  })
+);
 
 // Request logger
 app.use((req, res, next) => {
@@ -403,8 +419,29 @@ app.get("/api/current_user", async (req, res) => {
 const passwordRouter = require("./routes/user/password");
 app.use("/api/password", passwordRouter);
 
-// Route serve CSP demo
+// Root route - serve CSP demo homepage
+app.get("/", (req, res) => {
+  const fs = require("fs");
+  const filePath = path.join(__dirname, "public/index.html");
+  if (!fs.existsSync(filePath)) {
+    return res.json({
+      message: "SuLi Coffee API Server",
+      status: "running",
+      endpoints: {
+        api: "/api/*",
+        csp_demo: "/csp",
+        clickjacking_demo: "/clickjacking",
+      },
+    });
+  }
+
+  const html = fs.readFileSync(filePath, "utf8");
+  res.send(html);
+});
+
+// Route serve CSP demo (chỉ khi user click CSP Demo)
 app.get("/csp", (req, res) => {
+  const fs = require("fs");
   const filePath = path.join(__dirname, "public/index.html"); // đường dẫn tới file index.html của CSP demo
   if (!fs.existsSync(filePath)) return res.status(404).send("Not found");
 
