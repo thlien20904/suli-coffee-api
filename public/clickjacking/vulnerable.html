@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>⚠️ Vulnerable Page - No Protection</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #dc3545 0%, #ff6b6b 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        padding: 40px;
+        max-width: 600px;
+        text-align: center;
+      }
+      .warning-icon {
+        font-size: 80px;
+        margin-bottom: 20px;
+      }
+      h1 {
+        color: #dc3545;
+        margin-bottom: 20px;
+      }
+      .badge {
+        display: inline-block;
+        background: #dc3545;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: bold;
+        margin: 5px;
+      }
+      .danger-box {
+        background: #f8d7da;
+        border-left: 4px solid #dc3545;
+        padding: 20px;
+        border-radius: 6px;
+        margin: 20px 0;
+        text-align: left;
+      }
+      .danger-box h3 {
+        color: #721c24;
+        margin-bottom: 10px;
+      }
+      .action-button {
+        background: #dc3545;
+        color: white;
+        border: none;
+        padding: 15px 30px;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        margin: 20px 0;
+        transition: transform 0.2s;
+      }
+      .action-button:hover {
+        transform: scale(1.05);
+      }
+      .action-button:active {
+        transform: scale(0.98);
+      }
+      .iframe-warning {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 15px;
+        border-radius: 6px;
+        margin: 20px 0;
+        display: none;
+      }
+      .back-link {
+        margin-top: 20px;
+      }
+      .back-link a {
+        color: #dc3545;
+        text-decoration: none;
+        font-weight: 600;
+      }
+      .back-link a:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="warning-icon">💀</div>
+      <h1>Vulnerable Page</h1>
+      <p style="color: #666; margin-bottom: 20px">
+        Trang này KHÔNG có header bảo vệ - Dễ bị clickjacking!
+      </p>
+
+      <div>
+        <span class="badge">❌ NO X-Frame-Options</span>
+        <span class="badge">❌ NO frame-ancestors</span>
+      </div>
+
+      <div class="danger-box">
+        <h3>⚠️ Security Warning!</h3>
+        <p>
+          Trang này <strong>KHÔNG có</strong> header bảo vệ chống clickjacking:
+        </p>
+        <ul style="margin: 10px 0 10px 20px; line-height: 1.8">
+          <li>Không có <code>X-Frame-Options</code></li>
+          <li>
+            Không có <code>Content-Security-Policy: frame-ancestors</code>
+          </li>
+        </ul>
+        <p style="margin-top: 15px">
+          <strong>Kết quả:</strong> Trang này có thể bị nhúng vào
+          <code>&lt;iframe&gt;</code> từ BẤT KỲ domain nào → Dễ bị tấn công
+          clickjacking!
+        </p>
+      </div>
+
+      <div class="iframe-warning" id="iframeWarning">
+        <strong>⚠️ DETECTED: Page is loaded in iframe!</strong><br />
+        Attacker có thể che iframe này và lừa user click vào nút bên dưới!
+      </div>
+
+      <button class="action-button" onclick="deleteAccount()">
+        🗑️ Delete Account (Critical Action)
+      </button>
+
+      <p style="color: #666; font-size: 14px">
+        ⚠️ Vì không có protection, attacker có thể nhúng trang này và lừa user
+        click!
+      </p>
+
+      <div id="result" style="margin-top: 20px"></div>
+
+      <div class="back-link">
+        <a href="/clickjacking">← Quay lại Clickjacking Demo Home</a>
+      </div>
+    </div>
+
+    <script>
+      function deleteAccount() {
+        const result = document.getElementById("result");
+        result.innerHTML = `
+          <div style="background: #f8d7da; color: #721c24; padding: 15px; border-radius: 6px; border-left: 4px solid #dc3545;">
+            <strong>⚠️ Account Deletion Triggered!</strong><br>
+            (This is just a demo - nothing actually deleted)<br>
+            <small>Timestamp: ${new Date().toLocaleString("vi-VN")}</small>
+          </div>
+        `;
+
+        // Call API
+        fetch("/clickjacking/api/delete-account", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            console.log("API Response:", data);
+          });
+      }
+
+      // Check if page is in iframe
+      if (window !== window.top) {
+        document.getElementById("iframeWarning").style.display = "block";
+        console.warn(
+          "⚠️ DANGER: This page is being loaded in an iframe! Potential clickjacking attack!"
+        );
+      }
+    </script>
+  </body>
+</html>

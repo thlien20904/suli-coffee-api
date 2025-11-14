@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>📋 CSP Report Log - Real-time</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        padding: 30px;
+      }
+      h1 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 30px;
+        font-size: 32px;
+      }
+      .stats {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+      }
+      .stat-card {
+        flex: 1;
+        min-width: 200px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 8px;
+        text-align: center;
+      }
+      .stat-card.pass {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+      }
+      .stat-card.fail {
+        background: linear-gradient(135deg, #ee0979 0%, #ff6a00 100%);
+      }
+      .stat-number {
+        font-size: 48px;
+        font-weight: bold;
+        margin: 10px 0;
+      }
+      .stat-label {
+        font-size: 14px;
+        opacity: 0.9;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      .connection-status {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 10px;
+        background: #f0f0f0;
+        border-radius: 6px;
+        margin-bottom: 20px;
+      }
+      .status-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #ccc;
+        animation: pulse 2s infinite;
+      }
+      .status-dot.connected {
+        background: #38ef7d;
+      }
+      .tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #e0e0e0;
+        flex-wrap: wrap;
+      }
+      .tab {
+        padding: 12px 24px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+        color: #666;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s;
+      }
+      .tab.active {
+        color: #667eea;
+        border-bottom-color: #667eea;
+        font-weight: 600;
+      }
+      .tab:hover {
+        color: #667eea;
+      }
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+      }
+      .log-list {
+        max-height: 600px;
+        overflow-y: auto;
+      }
+      .log-item {
+        background: #f8f9fa;
+        border-left: 4px solid #dc3545;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 6px;
+        animation: slideIn 0.3s ease-out;
+      }
+      .log-item.pass {
+        border-left-color: #28a745;
+      }
+      .log-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .log-badge {
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: bold;
+        text-transform: uppercase;
+      }
+      .log-badge.fail {
+        background: #dc3545;
+        color: white;
+      }
+      .log-badge.pass {
+        background: #28a745;
+        color: white;
+      }
+      .log-time {
+        color: #666;
+        font-size: 14px;
+      }
+      .log-details {
+        display: grid;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .log-detail {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .log-label {
+        font-weight: 600;
+        color: #333;
+        min-width: 140px;
+      }
+      .log-value {
+        color: #666;
+        word-break: break-all;
+        flex: 1;
+      }
+      .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #999;
+      }
+      .empty-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+      }
+      .clear-btn {
+        background: #dc3545;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background 0.3s;
+      }
+      .clear-btn:hover {
+        background: #c82333;
+      }
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+      @media (max-width: 768px) {
+        .stats {
+          flex-direction: column;
+        }
+        .stat-card {
+          min-width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>📋 CSP Report Log - Real-time</h1>
+
+      <div class="connection-status">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Đang kết nối...</span>
+      </div>
+
+      <div class="stats">
+        <div class="stat-card pass">
+          <div class="stat-label">✅ Scripts Passed</div>
+          <div class="stat-number" id="passCount">0</div>
+        </div>
+        <div class="stat-card fail">
+          <div class="stat-label">❌ Violations</div>
+          <div class="stat-number" id="failCount">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">📊 Total Events</div>
+          <div class="stat-number" id="totalCount">0</div>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('all')">Tất cả</button>
+        <button class="tab" onclick="switchTab('violations')">
+          Violations
+        </button>
+        <button class="tab" onclick="switchTab('passed')">Passed</button>
+      </div>
+
+      <div style="text-align: right; margin-bottom: 10px">
+        <button class="clear-btn" onclick="clearLogs()">🗑️ Clear Logs</button>
+      </div>
+
+      <div id="allTab" class="tab-content active">
+        <div class="log-list" id="allLogs"></div>
+      </div>
+
+      <div id="violationsTab" class="tab-content">
+        <div class="log-list" id="violationLogs"></div>
+      </div>
+
+      <div id="passedTab" class="tab-content">
+        <div class="log-list" id="passLogs"></div>
+      </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io();
+      let allEvents = [];
+      let violations = [];
+      let passed = [];
+
+      // Socket events
+      socket.on("connect", () => {
+        document.getElementById("statusDot").classList.add("connected");
+        document.getElementById("statusText").textContent = "✅ Đã kết nối";
+        console.log("✅ Connected to server");
+      });
+
+      socket.on("disconnect", () => {
+        document.getElementById("statusDot").classList.remove("connected");
+        document.getElementById("statusText").textContent = "❌ Mất kết nối";
+        console.log("❌ Disconnected from server");
+      });
+
+      // Load initial logs
+      socket.on("initLogs", (data) => {
+        console.log("📦 Received initial logs:", data);
+
+        // Sort violations by timestamp descending (newest first)
+        violations = (data.violations || []).sort((a, b) => {
+          const timeA = new Date(a.timestamp || 0).getTime();
+          const timeB = new Date(b.timestamp || 0).getTime();
+          return timeB - timeA;
+        });
+
+        // Sort passes by timestamp descending (newest first)
+        passed = (data.passes || []).sort((a, b) => {
+          const timeA = new Date(a.timestamp || 0).getTime();
+          const timeB = new Date(b.timestamp || 0).getTime();
+          return timeB - timeA;
+        });
+
+        // Merge and sort all events (newest first)
+        allEvents = [...violations, ...passed].sort((a, b) => {
+          const timeA = new Date(a.timestamp || 0).getTime();
+          const timeB = new Date(b.timestamp || 0).getTime();
+          return timeB - timeA;
+        });
+
+        updateUI();
+      });
+
+      // Real-time violation
+      socket.on("newViolation", (violation) => {
+        console.log("⚠️ New violation:", violation);
+        violations.unshift(violation);
+        allEvents.unshift(violation);
+        updateUI();
+      });
+
+      // Real-time pass
+      socket.on("scriptPass", (passLog) => {
+        console.log("✅ Script passed:", passLog);
+        passed.unshift(passLog);
+        allEvents.unshift(passLog);
+        updateUI();
+      });
+
+      function switchTab(tab) {
+        document
+          .querySelectorAll(".tab")
+          .forEach((t) => t.classList.remove("active"));
+        document
+          .querySelectorAll(".tab-content")
+          .forEach((c) => c.classList.remove("active"));
+
+        if (tab === "all") {
+          document.querySelector(".tab:nth-child(1)").classList.add("active");
+          document.getElementById("allTab").classList.add("active");
+        } else if (tab === "violations") {
+          document.querySelector(".tab:nth-child(2)").classList.add("active");
+          document.getElementById("violationsTab").classList.add("active");
+        } else {
+          document.querySelector(".tab:nth-child(3)").classList.add("active");
+          document.getElementById("passedTab").classList.add("active");
+        }
+      }
+
+      function updateUI() {
+        document.getElementById("passCount").textContent = passed.length;
+        document.getElementById("failCount").textContent = violations.length;
+        document.getElementById("totalCount").textContent = allEvents.length;
+
+        renderLogs("allLogs", allEvents);
+        renderLogs("violationLogs", violations);
+        renderLogs("passLogs", passed);
+      }
+
+      function renderLogs(containerId, logs) {
+        const container = document.getElementById(containerId);
+
+        if (logs.length === 0) {
+          container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">📭</div>
+            <p>Chưa có logs nào</p>
+          </div>
+        `;
+          return;
+        }
+
+        container.innerHTML = logs
+          .map((log) => {
+            const isPass = log.status === "pass";
+            const badge = isPass
+              ? '<span class="log-badge pass">PASS</span>'
+              : '<span class="log-badge fail">VIOLATION</span>';
+
+            if (isPass) {
+              return `
+            <div class="log-item pass">
+              <div class="log-header">
+                ${badge}
+                <span class="log-time">${log.timestamp || ""}</span>
+              </div>
+              <div class="log-details">
+                <div class="log-detail">
+                  <span class="log-label">📄 Page:</span>
+                  <span class="log-value">${log.page || "N/A"}</span>
+                </div>
+                <div class="log-detail">
+                  <span class="log-label">🎯 Directive:</span>
+                  <span class="log-value">${log.directive || "N/A"}</span>
+                </div>
+              </div>
+            </div>
+          `;
+            } else {
+              return `
+            <div class="log-item">
+              <div class="log-header">
+                ${badge}
+                <span class="log-time">${log.timestamp || ""}</span>
+              </div>
+              <div class="log-details">
+                <div class="log-detail">
+                  <span class="log-label">📄 Document URI:</span>
+                  <span class="log-value">${log["document-uri"] || "N/A"}</span>
+                </div>
+                <div class="log-detail">
+                  <span class="log-label">⚠️ Violated Directive:</span>
+                  <span class="log-value">${
+                    log["violated-directive"] ||
+                    log["effective-directive"] ||
+                    "N/A"
+                  }</span>
+                </div>
+                <div class="log-detail">
+                  <span class="log-label">🚫 Blocked URI:</span>
+                  <span class="log-value">${
+                    log["blocked-uri"] || "inline"
+                  }</span>
+                </div>
+                ${
+                  log["source-file"]
+                    ? `
+                  <div class="log-detail">
+                    <span class="log-label">📁 Source File:</span>
+                    <span class="log-value">${log["source-file"]}</span>
+                  </div>
+                `
+                    : ""
+                }
+              </div>
+            </div>
+          `;
+            }
+          })
+          .join("");
+      }
+
+      function clearLogs() {
+        if (confirm("Xóa tất cả logs?")) {
+          allEvents = [];
+          violations = [];
+          passed = [];
+          updateUI();
+        }
+      }
+
+      // Initial render
+      updateUI();
+    </script>
+  </body>
+</html>

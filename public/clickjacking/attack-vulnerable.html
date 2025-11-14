@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>💣 Attacker Page - Successful Clickjacking Attack</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        padding: 30px;
+      }
+      h1 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 10px;
+      }
+      .subtitle {
+        text-align: center;
+        color: #666;
+        margin-bottom: 30px;
+      }
+      .danger-info {
+        background: #f8d7da;
+        border-left: 4px solid #dc3545;
+        padding: 20px;
+        border-radius: 6px;
+        margin-bottom: 30px;
+      }
+      .danger-info h3 {
+        color: #721c24;
+        margin-bottom: 10px;
+      }
+      .attack-demo {
+        position: relative;
+        width: 100%;
+        min-height: 500px;
+        margin: 20px 0;
+      }
+      .fake-ui {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        z-index: 2;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 40px;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        text-align: center;
+        color: white;
+      }
+      .fake-ui h2 {
+        margin-bottom: 20px;
+        font-size: 32px;
+      }
+      .fake-ui p {
+        font-size: 18px;
+        margin-bottom: 30px;
+      }
+      .fake-button {
+        background: #28a745;
+        color: white;
+        border: none;
+        padding: 20px 60px;
+        border-radius: 8px;
+        font-size: 24px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: transform 0.2s;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      }
+      .fake-button:hover {
+        transform: scale(1.05);
+      }
+      .hidden-iframe {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0.3; /* Demo: Để user nhìn thấy, thực tế sẽ là 0 */
+        z-index: 1;
+        border: 3px dashed #dc3545;
+        border-radius: 12px;
+        pointer-events: auto; /* Cho phép click vào iframe */
+      }
+      .explanation {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 20px;
+        border-radius: 6px;
+        margin: 20px 0;
+      }
+      .explanation h3 {
+        color: #856404;
+        margin-bottom: 10px;
+      }
+      .toggle-opacity {
+        text-align: center;
+        margin: 20px 0;
+      }
+      .toggle-button {
+        background: #667eea;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .back-link {
+        text-align: center;
+        margin-top: 20px;
+      }
+      .back-link a {
+        color: #dc3545;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 16px;
+      }
+      .back-link a:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>💣 Successful Clickjacking Attack Demo</h1>
+      <p class="subtitle">
+        Trang này THÀNH CÔNG nhúng <strong>Vulnerable Page</strong> - Demo cách
+        clickjacking hoạt động
+      </p>
+
+      <div class="danger-info">
+        <h3>⚠️ DANGER: Attack Successful!</h3>
+        <p>
+          Trang này nhúng <code>/clickjacking/vulnerable</code> vào iframe và
+          che iframe bằng UI giả.
+        </p>
+        <p style="margin-top: 10px">
+          <strong>Tại sao thành công?</strong> Vì victim page KHÔNG có header
+          bảo vệ:
+        </p>
+        <ul style="margin: 10px 0 10px 20px">
+          <li>❌ Không có <code>X-Frame-Options</code></li>
+          <li>❌ Không có <code>frame-ancestors</code> trong CSP</li>
+        </ul>
+        <p style="margin-top: 10px; color: #721c24; font-weight: bold">
+          → Browser cho phép nhúng iframe → Attacker chiến thắng!
+        </p>
+      </div>
+
+      <div class="attack-demo">
+        <!-- Fake UI (người dùng nhìn thấy) -->
+        <div class="fake-ui">
+          <h2>🎁 Congratulations!</h2>
+          <p>You've won $1000! Click below to claim your prize:</p>
+          <button class="fake-button">Click Here to Claim! 🎉</button>
+          <p style="margin-top: 20px; font-size: 14px; opacity: 0.8">
+            (Người dùng nghĩ họ đang click nút này)
+          </p>
+        </div>
+
+        <!-- Hidden iframe (victim page) -->
+        <iframe
+          id="victimFrame"
+          class="hidden-iframe"
+          src="/clickjacking/vulnerable"
+        ></iframe>
+      </div>
+
+      <div class="toggle-opacity">
+        <button class="toggle-button" onclick="toggleIframeVisibility()">
+          🔍 Toggle Iframe Visibility (Current: 30%)
+        </button>
+        <p style="margin-top: 10px; color: #666; font-size: 14px">
+          Demo: opacity = 0.3 để nhìn thấy iframe. Thực tế attacker sẽ dùng
+          opacity = 0 (vô hình)
+        </p>
+      </div>
+
+      <div class="explanation">
+        <h3>💡 How the attack works:</h3>
+        <ol style="margin: 10px 0 10px 20px; line-height: 2">
+          <li>
+            Attacker tạo trang với UI giả (nút xanh "Click Here to Claim")
+          </li>
+          <li>Nhúng victim page vào iframe với position: absolute</li>
+          <li>
+            Dùng CSS để iframe che khuất (opacity: 0, z-index thấp hơn UI giả)
+          </li>
+          <li>Điều chỉnh vị trí để nút "Delete Account" trùng với nút giả</li>
+          <li>
+            User click nút xanh → thực tế click vào nút đỏ trong iframe → hành
+            động nguy hiểm xảy ra!
+          </li>
+        </ol>
+      </div>
+
+      <div class="danger-info">
+        <h3>🛡️ How to prevent?</h3>
+        <p>
+          Victim page cần thêm header bảo vệ (như
+          <code>/clickjacking/protected</code>):
+        </p>
+        <pre
+          style="
+            background: #263238;
+            color: #aed581;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 10px 0;
+          "
+        >
+X-Frame-Options: DENY
+Content-Security-Policy: frame-ancestors 'none'</pre
+        >
+        <p style="margin-top: 10px">
+          Hoặc áp dụng toàn dự án bằng 1 file middleware
+          <code>securityHeaders.js</code>!
+        </p>
+      </div>
+
+      <div class="back-link">
+        <a href="/clickjacking">← Quay lại Clickjacking Demo Home</a>
+      </div>
+    </div>
+
+    <script>
+      let iframeVisible = true;
+
+      function toggleIframeVisibility() {
+        const iframe = document.getElementById("victimFrame");
+        const button = document.querySelector(".toggle-button");
+
+        if (iframeVisible) {
+          iframe.style.opacity = "0";
+          button.textContent =
+            "🔍 Toggle Iframe Visibility (Current: 0% - Hidden)";
+        } else {
+          iframe.style.opacity = "0.3";
+          button.textContent = "🔍 Toggle Iframe Visibility (Current: 30%)";
+        }
+
+        iframeVisible = !iframeVisible;
+      }
+
+      console.log("💣 Attacker Page loaded");
+      console.log("Iframe successfully embedded /clickjacking/vulnerable");
+      console.log(
+        "User sees fake UI, but clicks are captured by hidden iframe!"
+      );
+
+      // Monitor iframe load
+      const iframe = document.getElementById("victimFrame");
+      iframe.addEventListener("load", () => {
+        console.log("✅ Victim iframe loaded successfully - attack ready!");
+      });
+    </script>
+  </body>
+</html>

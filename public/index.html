@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>CSP Demo — Home</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <style>
+      .connection-status {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 12px;
+        background: #f0f0f0;
+        border-radius: 6px;
+        margin-bottom: 20px;
+        font-size: 14px;
+      }
+      .status-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #ccc;
+        animation: pulse 2s infinite;
+      }
+      .status-dot.connected {
+        background: #38ef7d;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+      .stats-bar {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        margin: 15px 0;
+        flex-wrap: wrap;
+      }
+      .stat-item {
+        padding: 8px 16px;
+        background: white;
+        border-radius: 6px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        font-size: 14px;
+      }
+      .stat-item strong {
+        color: #667eea;
+        font-size: 18px;
+        margin-right: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <main style="max-width: 1100px; margin: 18px auto; padding: 18px">
+      <header style="text-align: center; margin-bottom: 18px">
+        <h1>🧠 CSP Demo - Real-time Monitoring</h1>
+        <p style="color: #546e7a">
+          Demo các kỹ thuật Content Security Policy: chặn inline JS, cho phép
+          bằng hash hoặc nonce, và giám sát vi phạm.
+        </p>
+
+        <div class="connection-status">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="statusText">Đang kết nối...</span>
+        </div>
+
+        <div class="stats-bar">
+          <div class="stat-item">
+            <strong id="passCount">0</strong>
+            <span>✅ Passed</span>
+          </div>
+          <div class="stat-item">
+            <strong id="failCount">0</strong>
+            <span>❌ Violations</span>
+          </div>
+          <div class="stat-item">
+            <strong id="totalCount">0</strong>
+            <span>📊 Total</span>
+          </div>
+        </div>
+      </header>
+
+      <section
+        class="grid"
+        style="
+          display: flex;
+          flex-wrap: wrap;
+          gap: 12px;
+          justify-content: center;
+        "
+      >
+        <a
+          class="card"
+          href="/blocked"
+          style="text-decoration: none; min-width: 220px; max-width: 320px"
+        >
+          <div
+            style="
+              background: #fff;
+              padding: 16px;
+              border-radius: 8px;
+              box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+            "
+          >
+            <h3>🚫 /blocked</h3>
+            <p style="margin: 6px 0; color: #556">
+              Inline script bị chặn bởi CSP (xem DevTools)
+            </p>
+          </div>
+        </a>
+
+        <a
+          class="card"
+          href="/hash"
+          style="text-decoration: none; min-width: 220px; max-width: 320px"
+        >
+          <div
+            style="
+              background: #fff;
+              padding: 16px;
+              border-radius: 8px;
+              box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+            "
+          >
+            <h3>✅ /hash</h3>
+            <p style="margin: 6px 0; color: #556">
+              Cho phép script inline bằng SHA256 hash
+            </p>
+          </div>
+        </a>
+
+        <a
+          class="card"
+          href="/nonce"
+          style="text-decoration: none; min-width: 220px; max-width: 320px"
+        >
+          <div
+            style="
+              background: #fff;
+              padding: 16px;
+              border-radius: 8px;
+              box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+            "
+          >
+            <h3>🔐 /nonce</h3>
+            <p style="margin: 6px 0; color: #556">
+              Cho phép script inline bằng nonce (mỗi request khác nhau)
+            </p>
+          </div>
+        </a>
+
+        <a
+          class="card"
+          href="/csp-test"
+          style="text-decoration: none; min-width: 220px; max-width: 320px"
+        >
+          <div
+            style="
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              padding: 16px;
+              border-radius: 8px;
+              box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            "
+          >
+            <h3 style="color: white">🧪 /csp-test</h3>
+            <p style="margin: 6px 0; color: rgba(255, 255, 255, 0.9)">
+              <strong>Test Suite:</strong> 4 test cases inline scripts với
+              nonce/hash
+            </p>
+          </div>
+        </a>
+
+        <a
+          class="card"
+          href="/report-log-realtime"
+          style="text-decoration: none; min-width: 220px; max-width: 320px"
+        >
+          <div
+            style="
+              background: #fff;
+              padding: 16px;
+              border-radius: 8px;
+              box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+            "
+          >
+            <h3>📁 /report-log-realtime</h3>
+            <p style="margin: 6px 0; color: #556">
+              Dashboard realtime hiển thị các CSP violation
+            </p>
+          </div>
+        </a>
+
+        <a
+          class="card"
+          href="/analyze-realtime"
+          style="text-decoration: none; min-width: 220px; max-width: 320px"
+        >
+          <div
+            style="
+              background: #fff;
+              padding: 16px;
+              border-radius: 8px;
+              box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+            "
+          >
+            <h3>📈 /analyze-realtime</h3>
+            <p style="margin: 6px 0; color: #556">
+              Phân tích thống kê (Chart.js) — Pass / Fail
+            </p>
+          </div>
+        </a>
+
+        <a
+          class="card"
+          href="/clickjacking"
+          style="text-decoration: none; min-width: 220px; max-width: 320px"
+        >
+          <div
+            style="
+              background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+              padding: 16px;
+              border-radius: 8px;
+              box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+            "
+          >
+            <h3 style="color: white">🎯 /clickjacking</h3>
+            <p style="margin: 6px 0; color: rgba(255, 255, 255, 0.9)">
+              <strong>NEW!</strong> Chống Clickjacking với X-Frame-Options &
+              frame-ancestors
+            </p>
+          </div>
+        </a>
+      </section>
+
+      <footer style="text-align: center; margin-top: 20px; color: #889">
+        Made for learning CSP — demo only
+      </footer>
+    </main>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io();
+      let passCount = 0;
+      let failCount = 0;
+
+      socket.on("connect", () => {
+        document.getElementById("statusDot").classList.add("connected");
+        document.getElementById("statusText").textContent =
+          "✅ Đã kết nối - Real-time monitoring active";
+      });
+
+      socket.on("disconnect", () => {
+        document.getElementById("statusDot").classList.remove("connected");
+        document.getElementById("statusText").textContent = "❌ Mất kết nối";
+      });
+
+      socket.on("initLogs", (data) => {
+        console.log("📦 Received initial logs:", data);
+        if (data.violations) {
+          failCount = data.violations.length;
+        }
+        if (data.passes) {
+          passCount = data.passes.length;
+        }
+        updateStats();
+      });
+
+      socket.on("newViolation", (violation) => {
+        failCount++;
+        updateStats();
+      });
+
+      socket.on("scriptPass", (passLog) => {
+        passCount++;
+        updateStats();
+      });
+
+      function updateStats() {
+        document.getElementById("passCount").textContent = passCount;
+        document.getElementById("failCount").textContent = failCount;
+        document.getElementById("totalCount").textContent =
+          passCount + failCount;
+      }
+    </script>
+  </body>
+</html>

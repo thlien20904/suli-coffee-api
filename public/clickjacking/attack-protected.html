@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🎯 Attacker Page - Trying to frame Protected Page</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        padding: 30px;
+      }
+      h1 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 10px;
+      }
+      .subtitle {
+        text-align: center;
+        color: #666;
+        margin-bottom: 30px;
+      }
+      .attack-info {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 20px;
+        border-radius: 6px;
+        margin-bottom: 30px;
+      }
+      .attack-info h3 {
+        color: #856404;
+        margin-bottom: 10px;
+      }
+      .result-box {
+        background: #d4edda;
+        border-left: 4px solid #28a745;
+        padding: 20px;
+        border-radius: 6px;
+        margin: 20px 0;
+      }
+      .result-box h3 {
+        color: #155724;
+        margin-bottom: 10px;
+      }
+      .iframe-container {
+        position: relative;
+        width: 100%;
+        height: 500px;
+        border: 3px solid #dc3545;
+        border-radius: 8px;
+        overflow: hidden;
+        margin: 20px 0;
+        background: #f8f9fa;
+      }
+      .fake-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 193, 7, 0.1);
+        pointer-events: none;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: #dc3545;
+        font-weight: bold;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+      }
+      iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+      }
+      .error-display {
+        background: #f8d7da;
+        border-left: 4px solid #dc3545;
+        padding: 20px;
+        border-radius: 6px;
+        margin: 20px 0;
+        display: none;
+      }
+      .error-display.show {
+        display: block;
+      }
+      .back-link {
+        text-align: center;
+        margin-top: 20px;
+      }
+      .back-link a {
+        color: #ffc107;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 16px;
+      }
+      .back-link a:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🎯 Attacker Page (Clickjacking Attempt)</h1>
+      <p class="subtitle">
+        Trang này cố gắng nhúng <strong>Protected Page</strong> vào iframe
+      </p>
+
+      <div class="attack-info">
+        <h3>⚔️ Attack Scenario</h3>
+        <p>
+          <strong>Mục tiêu:</strong> Kẻ tấn công muốn lừa user click vào nút
+          "Delete Account" trên victim page.
+        </p>
+        <p style="margin-top: 10px">
+          <strong>Phương pháp:</strong> Nhúng victim page vào iframe, dùng CSS
+          che iframe (opacity: 0), đặt nút fake trùng vị trí.
+        </p>
+        <p style="margin-top: 10px">
+          <strong>Kết quả mong đợi:</strong> Browser sẽ <strong>CHẶN</strong>
+          iframe vì victim có header bảo vệ!
+        </p>
+      </div>
+
+      <div class="result-box">
+        <h3>✅ Protection Works!</h3>
+        <p>Iframe bên dưới sẽ KHÔNG load được vì Protected Page có header:</p>
+        <ul style="margin: 10px 0 10px 20px">
+          <li><code>X-Frame-Options: DENY</code></li>
+          <li><code>Content-Security-Policy: frame-ancestors 'none'</code></li>
+        </ul>
+        <p style="margin-top: 10px">
+          Mở <strong>DevTools Console</strong> để xem lỗi browser báo.
+        </p>
+      </div>
+
+      <div class="iframe-container">
+        <div class="fake-overlay">❌ BLOCKED BY SECURITY HEADERS</div>
+        <iframe
+          id="victimFrame"
+          src="/clickjacking/protected"
+          sandbox="allow-same-origin allow-scripts allow-forms"
+        ></iframe>
+      </div>
+
+      <div class="error-display" id="errorDisplay">
+        <h3>🛡️ Browser Blocked the Iframe!</h3>
+        <p id="errorMessage"></p>
+      </div>
+
+      <div
+        class="attack-info"
+        style="background: #e2e3e5; border-left-color: #6c757d"
+      >
+        <h3>💡 What happened?</h3>
+        <p>
+          Browser nhận được response từ <code>/clickjacking/protected</code> với
+          headers:
+        </p>
+        <pre
+          style="
+            background: #263238;
+            color: #aed581;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 10px 0;
+          "
+        >
+X-Frame-Options: DENY
+Content-Security-Policy: frame-ancestors 'none'</pre
+        >
+        <p style="margin-top: 10px">
+          Browser từ chối render content trong iframe và hiện lỗi:
+        </p>
+        <p style="color: #721c24; margin-top: 10px; font-style: italic">
+          "Refused to display 'http://localhost:5000/clickjacking/protected' in
+          a frame because it set 'X-Frame-Options' to 'deny'."
+        </p>
+        <p style="margin-top: 15px">
+          <strong>→ Tấn công THẤT BẠI! User được bảo vệ.</strong>
+        </p>
+      </div>
+
+      <div class="back-link">
+        <a href="/clickjacking">← Quay lại Clickjacking Demo Home</a>
+      </div>
+    </div>
+
+    <script>
+      // Detect if iframe failed to load
+      const iframe = document.getElementById("victimFrame");
+      const errorDisplay = document.getElementById("errorDisplay");
+      const errorMessage = document.getElementById("errorMessage");
+
+      iframe.addEventListener("error", function () {
+        errorDisplay.classList.add("show");
+        errorMessage.textContent =
+          "Iframe failed to load due to X-Frame-Options or CSP frame-ancestors!";
+      });
+
+      // Check after 2 seconds
+      setTimeout(() => {
+        try {
+          // Try to access iframe content (will throw error if blocked)
+          const iframeDoc =
+            iframe.contentDocument || iframe.contentWindow.document;
+          if (!iframeDoc || iframeDoc.body.innerHTML === "") {
+            errorDisplay.classList.add("show");
+            errorMessage.textContent =
+              "Iframe was blocked by security headers (X-Frame-Options: DENY / frame-ancestors 'none')";
+          }
+        } catch (e) {
+          errorDisplay.classList.add("show");
+          errorMessage.textContent = `Browser blocked iframe access: ${e.message}`;
+        }
+      }, 2000);
+
+      console.log("🎯 Attacker Page loaded");
+      console.log("Trying to embed /clickjacking/protected in iframe...");
+      console.log("Expected: Browser will block due to X-Frame-Options: DENY");
+    </script>
+  </body>
+</html>

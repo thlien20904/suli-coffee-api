@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Hash Allowed Inline Script</title>
+  </head>
+  <body>
+    <h1>✅ CSP Hash Demo</h1>
+
+    <p id="status" style="font-size: 18px; color: red">
+      ⏳ Đang kiểm tra CSP...
+    </p>
+
+    <script>
+      console.log("Inline script đang chạy (được phép)");
+      const status = document.getElementById("status");
+      status.style.color = "green";
+      status.textContent = "✅ Script đượdéc phép chạy (hash khớp)!";
+
+      // Gửi log pass
+      fetch("/api/log-pass", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          page: "/hash",
+          directive: "script-src",
+          timestamp: new Date().toLocaleString("vi-VN"),
+        }),
+      });
+    </script>
+
+    <p>
+      Nếu bạn thấy dòng màu xanh “✅ Script được phép chạy”, CSP hash đã khớp.
+      <br />
+      Nếu dòng trên vẫn là “⏳ Đang kiểm tra CSP...”, script bị chặn.
+    </p>
+  </body>
+</html>

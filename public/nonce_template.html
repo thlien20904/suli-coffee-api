@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Nonce Allowed Inline Script</title>
+  </head>
+  <body>
+    <h1>✅ Inline script allowed by Nonce</h1>
+
+    <script nonce="{{NONCE}}">
+      console.log("Inline script allowed by nonce");
+      document.body.insertAdjacentHTML(
+        "beforeend",
+        '<p id="nonceok">✅ Nonce script executed</p>'
+      );
+
+      // Gửi log pass
+      fetch("/api/log-pass", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          page: "/nonce",
+          directive: "script-src",
+          timestamp: new Date().toLocaleString("vi-VN"),
+        }),
+      });
+    </script>
+
+    <!-- Chạy được -->
+    <script nonce="{{NONCE}}">
+      console.log("Script 1 chạy được");
+
+      fetch("/api/log-pass", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          page: "/nonce",
+          directive: "script-src",
+          timestamp: new Date().toLocaleString("vi-VN"),
+        }),
+      });
+    </script>
+
+    <script nonce="{{NONCE}}">
+      console.log("Script 2 cũng chạy được");
+
+      fetch("/api/log-pass", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          page: "/nonce",
+          directive: "script-src",
+          timestamp: new Date().toLocaleString("vi-VN"),
+        }),
+      });
+    </script>
+
+    <p>Nếu bạn thấy đoạn thông báo với tick, nonce hoạt động đúng.</p>
+  </body>
+</html>

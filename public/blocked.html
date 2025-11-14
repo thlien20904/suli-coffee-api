@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Blocked Inline JS</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+      }
+      .status {
+        font-size: 18px;
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 5px;
+      }
+      .blocked {
+        background: #ffe6e6;
+        color: #d32f2f;
+      }
+      .pass {
+        background: #e8f5e9;
+        color: #2e7d32;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🚫 Inline script bị chặn bởi CSP</h1>
+
+    <div id="status" class="status blocked">⏳ Đang kiểm tra CSP...</div>
+
+    <script>
+      // ❌ Script này PHẢI bị chặn bởi CSP: script-src 'self'
+      console.log("❌ blocked inline script (should be blocked)");
+      document.getElementById("status").innerHTML =
+        "❌ CSP KHÔNG hoạt động! Script inline đã chạy.";
+      document.getElementById("status").className = "status pass";
+    </script>
+
+    <p>
+      <strong>Kết quả mong đợi:</strong><br />
+      - ⏳ Text "Đang kiểm tra CSP..." vẫn hiển thị (màu đỏ)<br />
+      - DevTools Console có lỗi: <code>Executing inline script violates...</code
+      ><br />
+      - Không có text "❌ CSP KHÔNG hoạt động!"
+    </p>
+
+    <p>
+      <strong>Nếu thấy "❌ CSP KHÔNG hoạt động!":</strong> CSP chưa chặn được
+      inline script!
+    </p>
+  </body>
+</html>

@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🧪 CSP Test - Inline Scripts with Nonce/Hash</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+      .container {
+        max-width: 1000px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        padding: 30px;
+      }
+      h1 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 10px;
+        font-size: 32px;
+      }
+      .subtitle {
+        text-align: center;
+        color: #666;
+        margin-bottom: 30px;
+        font-size: 14px;
+      }
+      .test-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border-left: 4px solid #667eea;
+      }
+      .test-section.blocked {
+        border-left-color: #dc3545;
+      }
+      .test-section.pass {
+        border-left-color: #28a745;
+      }
+      .test-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 15px;
+      }
+      .test-badge {
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: bold;
+        text-transform: uppercase;
+      }
+      .test-badge.blocked {
+        background: #dc3545;
+        color: white;
+      }
+      .test-badge.pass {
+        background: #28a745;
+        color: white;
+      }
+      .test-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #333;
+      }
+      .test-status {
+        padding: 10px 15px;
+        border-radius: 6px;
+        margin: 10px 0;
+        font-weight: 500;
+      }
+      .test-status.waiting {
+        background: #fff3cd;
+        color: #856404;
+      }
+      .test-status.blocked {
+        background: #f8d7da;
+        color: #721c24;
+      }
+      .test-status.success {
+        background: #d4edda;
+        color: #155724;
+      }
+      .test-description {
+        color: #666;
+        font-size: 14px;
+        line-height: 1.6;
+        margin-bottom: 10px;
+      }
+      .code {
+        background: #2d2d2d;
+        color: #f8f8f2;
+        padding: 15px;
+        border-radius: 6px;
+        font-family: "Courier New", monospace;
+        font-size: 13px;
+        overflow-x: auto;
+        margin: 10px 0;
+      }
+      .btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s;
+      }
+      .btn:hover {
+        transform: translateY(-2px);
+      }
+      .btn:active {
+        transform: translateY(0);
+      }
+      .info-box {
+        background: #e3f2fd;
+        border-left: 4px solid #2196f3;
+        padding: 15px;
+        border-radius: 6px;
+        margin: 20px 0;
+      }
+      .info-box h3 {
+        color: #1976d2;
+        margin-bottom: 10px;
+        font-size: 16px;
+      }
+      .info-box ul {
+        margin-left: 20px;
+        color: #555;
+        line-height: 1.8;
+      }
+      .csp-header {
+        background: #263238;
+        color: #aed581;
+        padding: 15px;
+        border-radius: 6px;
+        font-family: monospace;
+        font-size: 12px;
+        overflow-x: auto;
+        margin-bottom: 30px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🧪 CSP Test Suite</h1>
+      <p class="subtitle">
+        Test inline scripts với nonce/hash - Demo cho đề tài Content Security
+        Policy
+      </p>
+
+      <div class="csp-header">
+        Content-Security-Policy:<br />
+        script-src 'self' 'nonce-{{NONCE}}' 'sha256-YOUR_HASH_HERE'
+      </div>
+
+      <div class="info-box">
+        <h3>📌 Hướng dẫn test</h3>
+        <ul>
+          <li>Mở <strong>DevTools Console</strong> (F12)</li>
+          <li>Click các nút bên dưới để inject inline scripts vào trang</li>
+          <li>
+            Quan sát console log và alerts để xem script nào chạy, nào bị chặn
+          </li>
+          <li>
+            CSP violations sẽ hiện trong Console và được ghi vào
+            <code>/report-log-realtime</code>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Test 1: Inline script không nonce, không hash (PHẢI bị chặn) -->
+      <div class="test-section blocked">
+        <div class="test-header">
+          <span class="test-badge blocked">PHẢI BLOCK</span>
+          <span class="test-title">Test 1: Inline script không nonce/hash</span>
+        </div>
+        <div class="test-description">
+          Script inline không có nonce hoặc hash → CSP phải chặn
+        </div>
+        <div class="code">
+          const s1 = document.createElement('script');<br />
+          s1.textContent = "console.log('❌ BLOCKED'); alert('Should NOT
+          show!');";<br />
+          document.documentElement.appendChild(s1);
+        </div>
+        <div id="status1" class="test-status waiting">
+          ⏳ Chưa test - Click nút bên dưới
+        </div>
+        <button class="btn" id="btn1">🚀 Chạy Test 1</button>
+      </div>
+
+      <!-- Test 2: Inline script có nonce đúng (PHẢI chạy) -->
+      <div class="test-section pass">
+        <div class="test-header">
+          <span class="test-badge pass">PHẢI PASS</span>
+          <span class="test-title">Test 2: Inline script với nonce đúng</span>
+        </div>
+        <div class="test-description">
+          Script inline có nonce khớp với CSP header → Phải chạy thành công
+        </div>
+        <div class="code">
+          const s2 = document.createElement('script');<br />
+          s2.setAttribute('nonce', '{{NONCE}}'); // Lấy từ CSP header<br />
+          s2.textContent = "console.log('✅ NONCE works!'); alert('✅ NONCE
+          Works!');";<br />
+          document.documentElement.appendChild(s2);
+        </div>
+        <div id="status2" class="test-status waiting">
+          ⏳ Chưa test - Click nút bên dưới
+        </div>
+        <button class="btn" id="btn2">🚀 Chạy Test 2</button>
+      </div>
+
+      <!-- Test 3: Inline script có hash đúng (PHẢI chạy) -->
+      <div class="test-section pass">
+        <div class="test-header">
+          <span class="test-badge pass">PHẢI PASS</span>
+          <span class="test-title">Test 3: Inline script với hash đúng</span>
+        </div>
+        <div class="test-description">
+          Script inline có hash SHA256 khớp với CSP → Phải chạy thành công<br />
+          <small
+            >(Cần thêm hash vào CSP header trước - chạy
+            <code>node scripts/build-hash.js</code>)</small
+          >
+        </div>
+        <div class="code">
+          const s3 = document.createElement('script');<br />
+          s3.textContent = "console.log('✅ HASH works!'); alert('✅ HASH
+          Works!');";<br />
+          document.documentElement.appendChild(s3);
+        </div>
+        <div id="status3" class="test-status waiting">
+          ⏳ Chưa test - Click nút bên dưới
+        </div>
+        <button class="btn" id="btn3">🚀 Chạy Test 3</button>
+      </div>
+
+      <!-- Test 4: Inline script sai nonce/hash (PHẢI bị chặn) -->
+      <div class="test-section blocked">
+        <div class="test-header">
+          <span class="test-badge blocked">PHẢI BLOCK</span>
+          <span class="test-title"
+            >Test 4: Inline script với nonce/hash sai</span
+          >
+        </div>
+        <div class="test-description">
+          Script có nonce sai hoặc hash không khớp → CSP phải chặn
+        </div>
+        <div class="code">
+          const s4 = document.createElement('script');<br />
+          s4.setAttribute('nonce', 'WRONG_NONCE_123');<br />
+          s4.textContent = "console.log('❌ Wrong nonce/hash'); alert('Should
+          NOT show!');";<br />
+          document.documentElement.appendChild(s4);
+        </div>
+        <div id="status4" class="test-status waiting">
+          ⏳ Chưa test - Click nút bên dưới
+        </div>
+        <button class="btn" id="btn4">🚀 Chạy Test 4</button>
+      </div>
+
+      <div class="info-box">
+        <h3>✅ Kết quả mong đợi</h3>
+        <ul>
+          <li>
+            <strong>Test 1:</strong> Console báo lỗi CSP, alert KHÔNG hiện,
+            status "❌ BLOCKED"
+          </li>
+          <li>
+            <strong>Test 2:</strong> Console log "✅ NONCE works!", alert hiện,
+            status "✅ SUCCESS"
+          </li>
+          <li>
+            <strong>Test 3:</strong> Console log "✅ HASH works!", alert hiện
+            (nếu đã config hash)
+          </li>
+          <li>
+            <strong>Test 4:</strong> Console báo lỗi CSP, alert KHÔNG hiện,
+            status "❌ BLOCKED"
+          </li>
+        </ul>
+      </div>
+
+      <div style="text-align: center; margin-top: 30px">
+        <a href="/report-log-realtime" class="btn">📊 Xem CSP Violation Logs</a>
+      </div>
+    </div>
+
+    <!-- Test functions with nonce -->
+    <script nonce="{{NONCE}}">
+      const NONCE = "{{NONCE}}";
+      console.log("📝 Current nonce:", NONCE);
+
+      // Attach event listeners (không dùng onclick inline)
+      document.getElementById("btn1").addEventListener("click", test1);
+      document.getElementById("btn2").addEventListener("click", test2);
+      document.getElementById("btn3").addEventListener("click", test3);
+      document.getElementById("btn4").addEventListener("click", test4);
+
+      function test1() {
+        console.log("\n🧪 TEST 1: Inline script WITHOUT nonce/hash");
+        const status = document.getElementById("status1");
+
+        // Tạo script KHÔNG có nonce/hash
+        const s1 = document.createElement("script");
+        s1.textContent =
+          "console.log('❌ BLOCKED'); alert('❌ Should NOT show!'); document.getElementById('status1').textContent = '❌ CSP KHÔNG hoạt động!'; document.getElementById('status1').className = 'test-status success';";
+
+        // Đợi 1s để kiểm tra xem script có chạy không
+        setTimeout(() => {
+          const currentStatus = status.textContent;
+          if (
+            currentStatus.includes("Chưa test") ||
+            currentStatus.includes("⏳")
+          ) {
+            status.textContent = "✅ BLOCKED - CSP đã chặn thành công!";
+            status.className = "test-status blocked";
+            console.log("✅ Test 1 PASS: Script đã bị chặn");
+          }
+        }, 1000);
+
+        document.documentElement.appendChild(s1);
+      }
+
+      function test2() {
+        console.log("\n🧪 TEST 2: Inline script WITH correct nonce");
+        const status = document.getElementById("status2");
+
+        // Tạo script CÓ nonce đúng
+        const s2 = document.createElement("script");
+        s2.setAttribute("nonce", NONCE);
+        s2.textContent = `console.log('✅ NONCE works!'); alert('✅ NONCE Works!'); document.getElementById('status2').textContent = '✅ SUCCESS - Script đã chạy!'; document.getElementById('status2').className = 'test-status success';`;
+
+        document.documentElement.appendChild(s2);
+
+        // Nếu sau 1s vẫn chưa chạy → có lỗi
+        setTimeout(() => {
+          const currentStatus = status.textContent;
+          if (
+            currentStatus.includes("Chưa test") ||
+            currentStatus.includes("⏳")
+          ) {
+            status.textContent = "❌ FAILED - Script không chạy (nonce sai?)";
+            status.className = "test-status blocked";
+            console.error("❌ Test 2 FAIL: Script không chạy!");
+          }
+        }, 1000);
+      }
+
+      function test3() {
+        console.log("\n🧪 TEST 3: Inline script WITH hash (if configured)");
+        const status = document.getElementById("status3");
+
+        // Script này cần hash được config trước trong CSP
+        const s3 = document.createElement("script");
+        s3.textContent = `console.log('✅ HASH works!'); alert('✅ HASH Works!'); document.getElementById('status3').textContent = '✅ SUCCESS - Script đã chạy!'; document.getElementById('status3').className = 'test-status success';`;
+
+        document.documentElement.appendChild(s3);
+
+        setTimeout(() => {
+          const currentStatus = status.textContent;
+          if (
+            currentStatus.includes("Chưa test") ||
+            currentStatus.includes("⏳")
+          ) {
+            status.textContent =
+              "⚠️ BLOCKED - Cần thêm hash vào CSP (chạy build-hash.js)";
+            status.className = "test-status blocked";
+            console.warn(
+              "⚠️ Test 3: Script bị chặn - hash chưa được config trong CSP"
+            );
+          }
+        }, 1000);
+      }
+
+      function test4() {
+        console.log("\n🧪 TEST 4: Inline script WITH wrong nonce");
+        const status = document.getElementById("status4");
+
+        // Tạo script CÓ nonce SAI
+        const s4 = document.createElement("script");
+        s4.setAttribute("nonce", "WRONG_NONCE_123");
+        s4.textContent = `console.log('❌ Wrong nonce/hash'); alert('❌ Should NOT show!'); document.getElementById('status4').textContent = '❌ CSP KHÔNG hoạt động!'; document.getElementById('status4').className = 'test-status success';`;
+
+        setTimeout(() => {
+          const currentStatus = status.textContent;
+          if (
+            currentStatus.includes("Chưa test") ||
+            currentStatus.includes("⏳")
+          ) {
+            status.textContent = "✅ BLOCKED - CSP đã chặn thành công!";
+            status.className = "test-status blocked";
+            console.log("✅ Test 4 PASS: Script với nonce sai đã bị chặn");
+          }
+        }, 1000);
+
+        document.documentElement.appendChild(s4);
+      }
+
+      // Log để debug
+      console.log("🔒 CSP Test page loaded");
+      console.log("📋 Hướng dẫn: Click các nút test để kiểm tra CSP");
+    </script>
+  </body>
+</html>

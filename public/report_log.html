@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>CSP Report Log</title>
+    <!-- Append cache-busting query param during development -->
+    <link rel="stylesheet" href="/styles.css?ts=1" />
+  </head>
+  <body>
+    <h1>📁 CSP Violation Log</h1>
+    <p id="info">Đang tải dữ liệu...</p>
+
+    <div class="controls">
+      <div class="filters">
+        <label
+          >Trang:
+          <select id="filterPage">
+            <option value="">-- Tất cả --</option>
+          </select>
+        </label>
+        <label
+          >Directive:
+          <select id="filterDirective">
+            <option value="">-- Tất cả --</option>
+          </select>
+        </label>
+        <label
+          >Rows / page:
+          <select id="pageSize">
+            <option>10</option>
+            <option selected>20</option>
+            <option>50</option>
+          </select>
+        </label>
+      </div>
+      <div class="actions">
+        <button id="downloadJSON">Tải JSON</button>
+        <button id="downloadCSV">Tải CSV</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Thời gian</th>
+            <th>Document</th>
+            <th>Violated Directive</th>
+            <th>Blocked URI</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="pager" id="pager"></div>
+
+    <script>
+      // Client-side paginated log viewer with filters and export
+      let LOGS = [];
+      let currentPage = 1;
+
+      function uniq(arr) {
+        return [...new Set(arr)].sort();
+      }
+
+      function renderTablePage(filtered) {
+        const tbody = document.getElementById("tbody");
+        const info = document.getElementById("info");
+        tbody.innerHTML = "";
+        const pageSize = Number(
+          document.getElementById("pageSize").value || 20
+        );
+        const total = filtered.length;
+        const pages = Math.max(1, Math.ceil(total / pageSize));
+        if (currentPage > pages) currentPage = pages;
+        const start = (currentPage - 1) * pageSize;
+        const slice = filtered.slice(start, start + pageSize);
+        info.textContent = `Tổng: ${total} báo cáo — Trang ${currentPage}/${pages}`;
+        slice.forEach((r, idx) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+          <td>${start + idx + 1}</td>
+          <td>${r.timestamp || ""}</td>
+          <td>${r["document-uri"] || ""}</td>
+          <td>${r["violated-directive"] || ""}</td>
+          <td>${r["blocked-uri"] || ""}</td>
+        `;
+          tbody.appendChild(tr);
+        });
+        renderPager(pages);
+      }
+
+      function renderPager(pages) {
+        const pager = document.getElementById("pager");
+        pager.innerHTML = "";
+        if (pages <= 1) return;
+        const prev = document.createElement("button");
+        prev.textContent = "‹ Prev";
+        prev.disabled = currentPage === 1;
+        prev.onclick = () => {
+          currentPage--;
+          applyFilters();
+        };
+        pager.appendChild(prev);
+        // show up to 7 page buttons
+        const start = Math.max(1, currentPage - 3);
+        const end = Math.min(pages, start + 6);
+        for (let p = start; p <= end; p++) {
+          const b = document.createElement("button");
+          b.textContent = p;
+          if (p === currentPage) b.className = "active";
+          b.onclick = () => {
+            currentPage = p;
+            applyFilters();
+          };
+          pager.appendChild(b);
+        }
+        const next = document.createElement("button");
+        next.textContent = "Next ›";
+        next.disabled = currentPage === pages;
+        next.onclick = () => {
+          currentPage++;
+          applyFilters();
+        };
+        pager.appendChild(next);
+      }
+
+      function applyFilters() {
+        const pageSel = document.getElementById("filterPage").value;
+        const dirSel = document.getElementById("filterDirective").value;
+        let filtered = LOGS.slice().reverse(); // newest first
+        if (pageSel)
+          filtered = filtered.filter((r) => r["document-uri"] === pageSel);
+        if (dirSel)
+          filtered = filtered.filter((r) => r["violated-directive"] === dirSel);
+        renderTablePage(filtered);
+      }
+
+      function buildFilters() {
+        const pages = uniq(LOGS.map((r) => r["document-uri"]).filter(Boolean));
+        const dirs = uniq(
+          LOGS.map((r) => r["violated-directive"]).filter(Boolean)
+        );
+        const pageSel = document.getElementById("filterPage");
+        const dirSel = document.getElementById("filterDirective");
+        pageSel.innerHTML =
+          '<option value="">-- Tất cả --</option>' +
+          pages.map((p) => `<option value="${p}">${p}</option>`).join("");
+        dirSel.innerHTML =
+          '<option value="">-- Tất cả --</option>' +
+          dirs.map((d) => `<option value="${d}">${d}</option>`).join("");
+      }
+
+      function downloadJSON(filtered) {
+        const blob = new Blob([JSON.stringify(filtered, null, 2)], {
+          type: "application/json",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "csp-logs.json";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function downloadCSV(filtered) {
+        const keys = [
+          "timestamp",
+          "document-uri",
+          "violated-directive",
+          "blocked-uri",
+        ];
+        const rows = filtered.map((r) =>
+          keys
+            .map((k) => '"' + String(r[k] || "").replace(/"/g, '""') + '"')
+            .join(",")
+        );
+        const csv = [keys.join(","), ...rows].join("\n");
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "csp-logs.csv";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      async function loadLogs() {
+        try {
+          const res = await fetch("/api/logs");
+          LOGS = await res.json();
+          buildFilters();
+          currentPage = 1;
+          applyFilters();
+        } catch (e) {
+          document.getElementById("info").textContent = "Lỗi khi tải logs.";
+          console.error(e);
+        }
+      }
+
+      document.getElementById("filterPage").addEventListener("change", () => {
+        currentPage = 1;
+        applyFilters();
+      });
+      document
+        .getElementById("filterDirective")
+        .addEventListener("change", () => {
+          currentPage = 1;
+          applyFilters();
+        });
+      document.getElementById("pageSize").addEventListener("change", () => {
+        currentPage = 1;
+        applyFilters();
+      });
+      document.getElementById("downloadJSON").addEventListener("click", () => {
+        const filtered = (() => {
+          const pageSel = document.getElementById("filterPage").value;
+          const dirSel = document.getElementById("filterDirective").value;
+          let data = LOGS.slice().reverse();
+          if (pageSel) data = data.filter((r) => r["document-uri"] === pageSel);
+          if (dirSel)
+            data = data.filter((r) => r["violated-directive"] === dirSel);
+          return data;
+        })();
+        downloadJSON(filtered);
+      });
+      document.getElementById("downloadCSV").addEventListener("click", () => {
+        const filtered = (() => {
+          const pageSel = document.getElementById("filterPage").value;
+          const dirSel = document.getElementById("filterDirective").value;
+          let data = LOGS.slice().reverse();
+          if (pageSel) data = data.filter((r) => r["document-uri"] === pageSel);
+          if (dirSel)
+            data = data.filter((r) => r["violated-directive"] === dirSel);
+          return data;
+        })();
+        downloadCSV(filtered);
+      });
+
+      // auto-refresh every 5s to get new reports
+      loadLogs();
+      setInterval(loadLogs, 5000);
+    </script>
+  </body>
+</html>

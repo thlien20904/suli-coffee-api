@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>✅ Protected Page - Cannot be Framed</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        padding: 40px;
+        max-width: 600px;
+        text-align: center;
+      }
+      .shield-icon {
+        font-size: 80px;
+        margin-bottom: 20px;
+      }
+      h1 {
+        color: #28a745;
+        margin-bottom: 20px;
+      }
+      .badge {
+        display: inline-block;
+        background: #28a745;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: bold;
+        margin: 5px;
+      }
+      .info-box {
+        background: #d4edda;
+        border-left: 4px solid #28a745;
+        padding: 20px;
+        border-radius: 6px;
+        margin: 20px 0;
+        text-align: left;
+      }
+      .info-box h3 {
+        color: #155724;
+        margin-bottom: 10px;
+      }
+      .info-box code {
+        background: #263238;
+        color: #aed581;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-family: "Courier New", monospace;
+        font-size: 13px;
+      }
+      .action-button {
+        background: #dc3545;
+        color: white;
+        border: none;
+        padding: 15px 30px;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        margin: 20px 0;
+        transition: transform 0.2s;
+      }
+      .action-button:hover {
+        transform: scale(1.05);
+      }
+      .action-button:active {
+        transform: scale(0.98);
+      }
+      .back-link {
+        margin-top: 20px;
+      }
+      .back-link a {
+        color: #28a745;
+        text-decoration: none;
+        font-weight: 600;
+      }
+      .back-link a:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="shield-icon">🛡️</div>
+      <h1>Protected Page (Clickjacking + CSP)</h1>
+      <p style="color: #666; margin-bottom: 20px">
+        Trang này có <strong>2 LỚP BẢO VỆ</strong>: Chặn iframe + Chặn inline JS
+      </p>
+
+      <div>
+        <span class="badge">X-Frame-Options: DENY</span>
+        <span class="badge">frame-ancestors 'none'</span>
+        <span class="badge" style="background: #667eea"
+          >script-src 'nonce'</span
+        >
+      </div>
+
+      <div class="info-box">
+        <h3>🔒 Security Headers (Clickjacking + CSP)</h3>
+        <p>Trang này được bảo vệ bởi <strong>2 LỚP BẢO MẬT</strong>:</p>
+        <p style="margin-top: 15px">
+          <strong>1️⃣ Clickjacking Protection:</strong>
+        </p>
+        <ul style="margin: 5px 0 10px 20px; line-height: 1.8">
+          <li><code>X-Frame-Options: DENY</code></li>
+          <li><code>frame-ancestors 'none'</code></li>
+        </ul>
+        <p><strong>2️⃣ CSP Inline Script Protection:</strong></p>
+        <ul style="margin: 5px 0 10px 20px; line-height: 1.8">
+          <li><code>script-src 'self' 'nonce-XXX'</code></li>
+          <li>Chặn inline JS độc hại, chỉ chạy script có nonce</li>
+        </ul>
+        <p style="margin-top: 15px">
+          <strong>Kết quả:</strong>
+        </p>
+        <ul style="margin: 5px 0 10px 20px; line-height: 1.8">
+          <li>✅ Không thể nhúng vào iframe (chặn clickjacking)</li>
+          <li>✅ Không thể inject inline script (chặn XSS)</li>
+          <li>✅ <strong>BẢO VỆ KÉP!</strong></li>
+        </ul>
+      </div>
+
+      <button class="action-button" id="deleteBtn">
+        🗑️ Delete Account (Critical Action)
+      </button>
+
+      <p style="color: #666; font-size: 14px">
+        ⚠️ Đây là nút nhạy cảm - clickjacking attack sẽ cố lừa user click vào
+        đây!
+      </p>
+
+      <div id="result" style="margin-top: 20px"></div>
+
+      <!-- Test CSP: Thử inject inline script -->
+      <div
+        style="
+          margin-top: 30px;
+          padding: 20px;
+          background: #e8f4f8;
+          border-radius: 8px;
+          border-left: 4px solid #17a2b8;
+        "
+      >
+        <h3 style="color: #0c5460; margin-top: 0">🧪 Test CSP Protection</h3>
+        <p style="color: #0c5460">
+          Click nút bên dưới để test CSP chặn inline script:
+        </p>
+        <button
+          id="testCSPBtn"
+          style="
+            background: #17a2b8;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+          "
+        >
+          🚀 Test: Inject Inline Script
+        </button>
+        <div
+          id="cspTestResult"
+          style="margin-top: 15px; font-weight: bold"
+        ></div>
+      </div>
+
+      <div class="back-link">
+        <a href="/clickjacking">← Quay lại Clickjacking Demo Home</a>
+      </div>
+    </div>
+
+    <script nonce="{{NONCE}}">
+      function deleteAccount() {
+        const result = document.getElementById("result");
+        result.innerHTML = `
+          <div style="background: #f8d7da; color: #721c24; padding: 15px; border-radius: 6px; border-left: 4px solid #dc3545;">
+            <strong>⚠️ Account Deletion Triggered!</strong><br>
+            (This is just a demo - nothing actually deleted)<br>
+            <small>Timestamp: ${new Date().toLocaleString("vi-VN")}</small>
+          </div>
+        `;
+
+        // Call API
+        fetch("/clickjacking/api/delete-account", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            console.log("API Response:", data);
+          });
+      }
+
+      // Bind delete button (CSP-compliant: addEventListener instead of onclick)
+      document
+        .getElementById("deleteBtn")
+        .addEventListener("click", deleteAccount);
+
+      // 🧪 TEST CSP: Thử inject inline script KHÔNG có nonce
+      document
+        .getElementById("testCSPBtn")
+        .addEventListener("click", function () {
+          const resultDiv = document.getElementById("cspTestResult");
+
+          try {
+            // Tạo script element KHÔNG có nonce
+            const maliciousScript = document.createElement("script");
+            maliciousScript.textContent =
+              "alert('🚨 XSS Attack! Script injected!'); console.log('Malicious code executed!');";
+            document.body.appendChild(maliciousScript);
+
+            // Nếu chạy được đến đây mà không bị chặn
+            resultDiv.innerHTML =
+              '<span style="color: #dc3545;">❌ CSP FAILED - Script ran!</span>';
+            console.log("❌ CSP Test FAILED: Inline script was executed!");
+          } catch (e) {
+            // Script bị chặn
+            resultDiv.innerHTML =
+              '<span style="color: #28a745;">✅ BLOCKED - CSP chặn thành công!</span>';
+            console.log("✅ CSP Test PASSED: Inline script was blocked!");
+            console.log("Error:", e.message);
+          }
+
+          // Kiểm tra console để thấy CSP violation report
+          setTimeout(() => {
+            resultDiv.innerHTML +=
+              '<br><small style="color: #666;">Mở Console (F12) để xem CSP violation report!</small>';
+          }, 100);
+        });
+
+      // Check if page is in iframe
+      if (window !== window.top) {
+        document.body.innerHTML = `
+          <div style="padding: 40px; text-align: center; background: #fff3cd; min-height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+            <h1 style="color: #856404;">⚠️ Warning!</h1>
+            <p style="font-size: 18px; margin: 20px 0;">This page detected that it's being loaded in an iframe!</p>
+            <p>Due to security headers, this should not be possible from external sites.</p>
+            <p><strong>If you see this, something is wrong with the security configuration.</strong></p>
+          </div>
+        `;
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🔐 SameOrigin Page</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        padding: 40px;
+        max-width: 600px;
+        text-align: center;
+      }
+      .icon {
+        font-size: 80px;
+        margin-bottom: 20px;
+      }
+      h1 {
+        color: #667eea;
+        margin-bottom: 20px;
+      }
+      .badge {
+        display: inline-block;
+        background: #667eea;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: bold;
+        margin: 5px;
+      }
+      .info-box {
+        background: #e3f2fd;
+        border-left: 4px solid #2196f3;
+        padding: 20px;
+        border-radius: 6px;
+        margin: 20px 0;
+        text-align: left;
+      }
+      .info-box h3 {
+        color: #1976d2;
+        margin-bottom: 10px;
+      }
+      .info-box code {
+        background: #263238;
+        color: #aed581;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-family: "Courier New", monospace;
+        font-size: 13px;
+      }
+      .test-section {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 6px;
+        margin: 20px 0;
+      }
+      .test-section h3 {
+        color: #333;
+        margin-bottom: 15px;
+      }
+      .test-button {
+        background: #667eea;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        margin: 5px;
+        transition: transform 0.2s;
+      }
+      .test-button:hover {
+        transform: scale(1.05);
+      }
+      #testResult {
+        margin-top: 15px;
+        padding: 15px;
+        border-radius: 6px;
+        display: none;
+      }
+      #testResult.success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+        display: block;
+      }
+      #testResult.error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+        display: block;
+      }
+      .back-link {
+        margin-top: 20px;
+      }
+      .back-link a {
+        color: #667eea;
+        text-decoration: none;
+        font-weight: 600;
+      }
+      .back-link a:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="icon">🔐</div>
+      <h1>SameOrigin Protected Page</h1>
+      <p style="color: #666; margin-bottom: 20px">
+        Trang này CHỈ nhúng được từ cùng origin (localhost:5000)
+      </p>
+
+      <div>
+        <span class="badge">X-Frame-Options: SAMEORIGIN</span>
+        <span class="badge">frame-ancestors 'self'</span>
+      </div>
+
+      <div class="info-box">
+        <h3>🔒 Security Configuration</h3>
+        <p>Trang này có header:</p>
+        <ul style="margin: 10px 0 10px 20px; line-height: 1.8">
+          <li><code>X-Frame-Options: SAMEORIGIN</code></li>
+          <li><code>Content-Security-Policy: frame-ancestors 'self'</code></li>
+        </ul>
+        <p style="margin-top: 15px"><strong>Kết quả:</strong></p>
+        <ul style="margin: 10px 0 10px 20px; line-height: 1.8">
+          <li>
+            ✅ <strong>CHO PHÉP</strong> nhúng từ
+            <code>http://localhost:5000</code>
+          </li>
+          <li>
+            ❌ <strong>CHẶN</strong> nhúng từ domain khác (e.g.,
+            <code>attacker.com</code>)
+          </li>
+        </ul>
+      </div>
+
+      <div class="test-section">
+        <h3>🧪 Test Embedding</h3>
+        <p style="margin-bottom: 15px; color: #666">
+          Click nút bên dưới để test nhúng trang này vào iframe:
+        </p>
+        <button class="test-button" onclick="testSameOrigin()">
+          ✅ Test Same-Origin (localhost:5000)
+        </button>
+        <div id="testResult"></div>
+      </div>
+
+      <div
+        class="info-box"
+        style="background: #fff3cd; border-left-color: #ffc107"
+      >
+        <h3 style="color: #856404">💡 Use Cases</h3>
+        <p><code>SAMEORIGIN</code> hữu ích khi:</p>
+        <ul style="margin: 10px 0 10px 20px; line-height: 1.8">
+          <li>Bạn muốn nhúng trang vào dashboard/admin của chính bạn</li>
+          <li>Single Page Application (SPA) cần iframe internal pages</li>
+          <li>
+            Multi-tab interface trong cùng 1 domain (ví dụ: Google Workspace)
+          </li>
+        </ul>
+        <p style="margin-top: 10px">
+          Nếu muốn <strong>HOÀN TOÀN</strong> chặn iframe → dùng
+          <code>DENY</code> / <code>frame-ancestors 'none'</code>
+        </p>
+      </div>
+
+      <div class="back-link">
+        <a href="/clickjacking">← Quay lại Clickjacking Demo Home</a>
+      </div>
+    </div>
+
+    <script>
+      function testSameOrigin() {
+        const resultDiv = document.getElementById("testResult");
+        resultDiv.className = "";
+        resultDiv.textContent = "⏳ Testing...";
+        resultDiv.style.display = "block";
+
+        // Create iframe dynamically
+        const iframe = document.createElement("iframe");
+        iframe.style.width = "100%";
+        iframe.style.height = "300px";
+        iframe.style.border = "2px solid #667eea";
+        iframe.style.borderRadius = "6px";
+        iframe.style.marginTop = "10px";
+        iframe.src = "/clickjacking/sameorigin";
+
+        iframe.onload = function () {
+          resultDiv.className = "success";
+          resultDiv.innerHTML = `
+            <strong>✅ SUCCESS!</strong><br>
+            Iframe loaded successfully vì cùng origin (localhost:5000)<br>
+            <small>Timestamp: ${new Date().toLocaleString("vi-VN")}</small>
+          `;
+          console.log("✅ Same-origin iframe loaded successfully");
+        };
+
+        iframe.onerror = function () {
+          resultDiv.className = "error";
+          resultDiv.innerHTML = `
+            <strong>❌ FAILED!</strong><br>
+            Iframe bị chặn (không nên xảy ra nếu same-origin)<br>
+            <small>Check console for details</small>
+          `;
+          console.error("❌ Iframe failed to load");
+        };
+
+        // Append iframe to result div
+        resultDiv.appendChild(iframe);
+      }
+
+      // Check if current page is in iframe
+      if (window !== window.top) {
+        const parentOrigin = document.referrer || "unknown";
+        console.log("📍 Page loaded in iframe from:", parentOrigin);
+
+        if (
+          parentOrigin.includes(window.location.origin) ||
+          parentOrigin === ""
+        ) {
+          console.log(
+            "✅ Same-origin embed detected - allowed by SAMEORIGIN policy"
+          );
+        } else {
+          console.warn(
+            "⚠️ Cross-origin embed detected - should be blocked by SAMEORIGIN!"
+          );
+        }
+      }
+    </script>
+  </body>
+</html>

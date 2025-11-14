@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CSP Analyzer</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <!-- Use the UMD build with explicit path to avoid ambiguous resolution and source-map 404 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+    <script defer src="/analyze.js"></script>
+  </head>
+  <body>
+    <h1>📈 CSP Analyzer</h1>
+    <p>Thống kê số vi phạm theo trang, theo directive và theo blocked-uri.</p>
+
+    <div class="chart-grid">
+      <div class="chart-container">
+        <canvas id="byPage"></canvas>
+      </div>
+      <div class="chart-container">
+        <canvas id="byDirective"></canvas>
+      </div>
+      <div class="chart-container">
+        <canvas id="byBlocked"></canvas>
+      </div>
+      <div class="chart-container pie-container">
+        <div id="passFailInfo" class="pie-info"></div>
+        <!-- Explicit width/height and light background/border to ensure canvas is visible -->
+        <canvas
+          id="passFail"
+          width="380"
+          height="300"
+          style="
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 6px;
+            display: block;
+            margin: 0 auto;
+          "
+        ></canvas>
+      </div>
+    </div>
+  </body>
+</html>
