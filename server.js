@@ -27,9 +27,18 @@ const app = express();
 // Tạo server từ app
 const server = http.createServer(app);
 
+// SỬA CORS: Dynamic origins (thêm env var ở Render cho dễ update)
+const allowedOrigins = [
+  "http://localhost:3000", // Dev local
+  "https://suli-coffee-web.vercel.app", // Old Vercel URL
+  process.env.FRONTEND_URL ||
+    "https://suli-coffee-cz66vb2dj-su-li-coffee.vercel.app", // New Vercel prod (set env ở Render)
+  "https://suli-coffee-cz66vb2dj-su-li-coffee.vercel.app", // Hardcode backup
+];
+
 const io = new socketIO.Server(server, {
   cors: {
-    origin: ["http://localhost:3000", "https://suli-coffee-web.vercel.app"],
+    origin: allowedOrigins,
     credentials: true,
   },
 });
@@ -38,6 +47,10 @@ const socketManager = initializeSocketIO(io);
 
 // Export socketManager để các routes khác sử dụng
 app.set("socketManager", socketManager);
+
+// Debug log allowed origins
+console.log("🌐 CORS Allowed Origins:", allowedOrigins);
+console.log("📡 FRONTEND_URL from env:", process.env.FRONTEND_URL);
 
 // Database helper (mssql)
 const sql = require("./db"); // hoặc import sql from './db.js' nếu dùng ES module
@@ -52,13 +65,19 @@ process.on("unhandledRejection", (reason, p) => {
   console.error("UNHANDLED REJECTION at:", p, "reason:", reason);
 });
 
-// SỬA: CORS MỚI (DUY NHẤT) - XÓA CÁI CŨ ĐỂ TRÁNH OVERRIDE
+// SỬA: CORS MỚI (DUY NHẤT) - Dynamic origin function
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000", // Dev local
-      "https://suli-coffee-web.vercel.app", // Prod Vercel
-    ],
+    origin: (origin, callback) => {
+      // Cho phép nếu origin match hoặc không có origin (như Postman/direct call)
+      if (!origin || allowedOrigins.includes(origin)) {
+        console.log(`✅ CORS allowed origin: ${origin || "no-origin"}`);
+        callback(null, true);
+      } else {
+        console.log(`❌ CORS blocked origin: ${origin}`); // Debug log
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true, // Nếu dùng cookies/auth
     methods: ["GET", "POST", "PUT", "DELETE"], // Methods cần
     allowedHeaders: ["Content-Type", "Authorization"], // Headers cần
@@ -348,7 +367,9 @@ app.get(
 app.get(
   "/auth/google/callback",
   passport.authenticate("google", {
-    failureRedirect: "http://localhost:3000/login?error=auth_failed",
+    failureRedirect: `${
+      process.env.FRONTEND_URL || "http://localhost:3000"
+    }/login?error=auth_failed`,
     session: false,
   }),
   (req, res) => {
@@ -357,7 +378,11 @@ app.get(
 
       if (!req.user) {
         console.error("[Google OAuth Callback] No user data received!");
-        return res.redirect("http://localhost:3000/login?error=no_user_data");
+        return res.redirect(
+          `${
+            process.env.FRONTEND_URL || "http://localhost:3000"
+          }/login?error=no_user_data`
+        );
       }
 
       const token = jwt.sign(
@@ -375,14 +400,19 @@ app.get(
       console.log(
         "[Google OAuth Callback] JWT created, redirecting to frontend..."
       );
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
       res.redirect(
-        `http://localhost:3000/login?token=${token}&role=${(
+        `${frontendUrl}/login?token=${token}&role=${(
           req.user.Role || "user"
         ).toLowerCase()}&avatar=${encodeURIComponent(req.user.AvatarUrl || "")}`
       );
     } catch (err) {
       console.error("[Google OAuth Callback] Error:", err);
-      res.redirect("http://localhost:3000/login?error=callback_error");
+      res.redirect(
+        `${
+          process.env.FRONTEND_URL || "http://localhost:3000"
+        }/login?error=callback_error`
+      );
     }
   }
 );
