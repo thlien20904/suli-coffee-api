@@ -27,14 +27,12 @@ const app = express();
 // Tạo server từ app
 const server = http.createServer(app);
 
-// Tạo socket.io
 const io = new socketIO.Server(server, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: ["http://localhost:3000", "https://suli-coffee-web.vercel.app"],
     credentials: true,
   },
 });
-
 // Initialize Socket.IO với real-time features
 const socketManager = initializeSocketIO(io);
 
@@ -54,21 +52,21 @@ process.on("unhandledRejection", (reason, p) => {
   console.error("UNHANDLED REJECTION at:", p, "reason:", reason);
 });
 
-app.get("/", (req, res) => {
-  res.json({
-    message: "SuLi Coffee API Server đang chạy OK!",
-    status: "running",
-    timestamp: new Date().toISOString(),
-  });
-});
-
-/* ---------------- MIDDLEWARE ---------------- */
+// SỬA: CORS MỚI (DUY NHẤT) - XÓA CÁI CŨ ĐỂ TRÁNH OVERRIDE
 app.use(
   cors({
-    origin: "http://localhost:3000",
-    credentials: true,
+    origin: [
+      "http://localhost:3000", // Dev local
+      "https://suli-coffee-web.vercel.app", // Prod Vercel
+    ],
+    credentials: true, // Nếu dùng cookies/auth
+    methods: ["GET", "POST", "PUT", "DELETE"], // Methods cần
+    allowedHeaders: ["Content-Type", "Authorization"], // Headers cần
   })
 );
+
+// XÓA DÒNG NÀY (CORS CŨ): app.use(cors({ origin: "http://localhost:3000", credentials: true }));
+
 app.use(express.json());
 app.use(passport.initialize());
 app.use(express.urlencoded({ extended: true }));
