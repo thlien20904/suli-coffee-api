@@ -34,6 +34,7 @@ const parseStoreWithDistance = (store) => ({
 // Lấy danh sách tất cả cửa hàng
 exports.getAllStores = async (req, res) => {
   try {
+    console.log("🏪 GETTING ALL STORES...");
     const stores = await CuaHang.findAll({
       order: [["CuaHangId", "DESC"]],
       attributes: [
@@ -47,7 +48,13 @@ exports.getAllStores = async (req, res) => {
         "Longitude",
       ],
     });
-    res.json({ success: true, data: stores.map(parseLatLng) });
+    console.log(`✅ Found ${stores.length} stores`);
+    const processedStores = stores.map(parseStoreWithDistance);
+    console.log(
+      "📍 Processed stores with coordinates:",
+      processedStores.length
+    );
+    res.json({ success: true, data: processedStores });
   } catch (err) {
     console.error("❌ Lỗi lấy danh sách cửa hàng:", err);
     res.status(500).json({ success: false, message: "Lỗi server" });
@@ -74,7 +81,7 @@ exports.getStoreById = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Không tìm thấy cửa hàng!" });
 
-    res.json({ success: true, data: parseLatLng(store) });
+    res.json({ success: true, data: parseStoreWithDistance(store) });
   } catch (err) {
     console.error("❌ Lỗi lấy chi tiết cửa hàng:", err);
     res.status(500).json({ success: false, message: "Lỗi server" });
@@ -110,7 +117,7 @@ exports.searchStores = async (req, res) => {
       ],
     });
 
-    res.json({ success: true, data: stores.map(parseLatLng) });
+    res.json({ success: true, data: stores.map(parseStoreWithDistance) });
   } catch (err) {
     console.error("❌ Lỗi tìm kiếm cửa hàng:", err);
     res.status(500).json({ success: false, message: "Lỗi server" });
