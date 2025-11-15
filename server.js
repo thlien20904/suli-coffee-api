@@ -27,13 +27,10 @@ const app = express();
 // Tạo server từ app
 const server = http.createServer(app);
 
-// SỬA CORS: Dynamic origins (thêm env var ở Render cho dễ update)
+// SỬA CORS: Đơn giản hóa - dùng URL mặc định stable + env variable
 const allowedOrigins = [
   "http://localhost:3000", // Dev local
-  "https://suli-coffee-web.vercel.app", // Old Vercel URL
-  process.env.FRONTEND_URL ||
-    "https://suli-coffee-cz66vb2dj-su-li-coffee.vercel.app", // New Vercel prod (set env ở Render)
-  "https://suli-coffee-cz66vb2dj-su-li-coffee.vercel.app", // Hardcode backup
+  process.env.FRONTEND_URL || "https://suli-coffee-web.vercel.app", // Production (stable URL mặc định)
 ];
 
 const io = new socketIO.Server(server, {
