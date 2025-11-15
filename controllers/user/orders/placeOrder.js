@@ -520,16 +520,31 @@ const placeOrder = async (req, res) => {
       console.log(`📦 Order ID: ${order.OrderId}`);
       console.log(`🌐 VNPay Host: https://sandbox.vnpayment.vn`);
 
+      // 🔗 Dynamic VNPay return URL based on request origin
+      const origin = req.headers.origin || req.headers.referer;
+      let vnpReturnUrl =
+        process.env.VNP_RETURN_URL ||
+        "https://suli-coffee-web.vercel.app/vnpay-return";
+
+      if (origin) {
+        try {
+          const originUrl = new URL(origin);
+          if (originUrl.hostname.includes("vercel.app")) {
+            vnpReturnUrl = `${origin}/vnpay-return`;
+            console.log(`🔄 VNPay Return URL set to origin: ${vnpReturnUrl}`);
+          }
+        } catch (e) {
+          console.warn(`⚠️ Invalid origin URL: ${origin}`);
+        }
+      }
+
       const vnpayParams = {
         vnp_Amount: amountNumber, // ✅ Truyền số VND thuần, SDK sẽ tự nhân 100
         vnp_IpAddr: ipAddr,
         vnp_TxnRef: order.OrderId.toString(),
         vnp_OrderInfo: `Thanh toán đơn hàng ${order.OrderId}`,
         vnp_OrderType: ProductCode.Other,
-        vnp_ReturnUrl:
-          process.env.VNP_RETURN_URL ||
-          process.env.VNPAY_RETURN_URL ||
-          "http://localhost:3000/vnpay-return",
+        vnp_ReturnUrl: vnpReturnUrl,
         vnp_Locale: VnpLocale.VN,
         vnp_CreateDate: dateFormat(new Date()),
         vnp_ExpireDate: dateFormat(tomorrow),

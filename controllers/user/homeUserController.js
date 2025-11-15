@@ -5,6 +5,8 @@ const { Food, Category, OrderDetails } = models;
 
 exports.getHomeData = async (req, res) => {
   try {
+    console.log("🏠 HOME API CALLED - Starting query...");
+    
     // Tính tổng bán
     const soldSum = sequelize.fn(
       "COALESCE",
@@ -12,6 +14,7 @@ exports.getHomeData = async (req, res) => {
       0
     );
 
+    console.log("🔍 HOME: Executing Food.findAll query...");
     const foods = await Food.findAll({
       attributes: [
         ["FoodId", "ProductID"],
@@ -54,7 +57,10 @@ exports.getHomeData = async (req, res) => {
       raw: true,
     });
 
+    console.log(`✅ HOME: Query successful, found ${foods.length} products`);
+
     const products = foods.map((r) => ({
+      ProductID: r.ProductID,
       ProductID: r.ProductID,
       Name: r.Name,
       Description: r.Description,
@@ -70,14 +76,17 @@ exports.getHomeData = async (req, res) => {
 
     return res.json({ success: true, data: products });
   } catch (err) {
-    console.error(
-      "❌ Lỗi lấy dữ liệu trang chủ (Sequelize):",
-      err && err.stack ? err.stack : err
-    );
+    console.error("❌ API HOME ERROR FULL:", err);
+    console.error("❌ Error Name:", err.name);
+    console.error("❌ Error Message:", err.message);
+    console.error("❌ Stack Trace:", err.stack);
+    
     return res.status(500).json({
       success: false,
       message: "Lỗi khi lấy dữ liệu trang chủ",
-      detail: err && err.message ? err.message : String(err),
+      detail: err.name,
+      full: err.message,
+      type: "SequelizeError"
     });
   }
 };

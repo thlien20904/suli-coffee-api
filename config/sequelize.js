@@ -27,10 +27,10 @@ const sequelize = new Sequelize(
     },
     timezone: "+07:00",
     pool: {
-      max: 10,      // số connection tối đa
-      min: 0,       // số connection tối thiểu
+      max: 5,        // Giảm từ 10 → 5 cho Supabase free tier (15 connections limit)
+      min: 0,        // số connection tối thiểu
       acquire: 30000, // thời gian tối đa (ms) để lấy connection
-      idle: 10000,    // thời gian connection idle tối đa trước khi release
+      idle: 10000,   // thời gian connection idle tối đa trước khi release
     },
     retry: {
       max: 3, // retry 3 lần nếu bị lỗi connection
@@ -38,25 +38,24 @@ const sequelize = new Sequelize(
   }
 );
 
-// ✅ Kiểm tra kết nối
+// ✅ Kiểm tra kết nối với enhanced testing
 (async () => {
   try {
+    console.log("🔍 Testing Sequelize connection...");
     await sequelize.authenticate();
     console.log("✅ Kết nối PostgreSQL (Sequelize) thành công!");
+    
+    // Test query để đảm bảo pool hoạt động
+    const testResult = await sequelize.query("SELECT 1 as test", { type: sequelize.QueryTypes.SELECT });
+    console.log("✅ Sequelize test query OK:", testResult);
+    
   } catch (err) {
-    console.error(
-      "❌ Lỗi kết nối PostgreSQL:",
-      err && err.message ? err.message : err
-    );
-    console.error(
-      "→ DB host:",
-      process.env.DB_HOST,
-      "port:",
-      process.env.DB_PORT
-    );
-    console.error(
-      "→ Kiểm tra: username/password, SSL, pooler Supabase có đang chạy?"
-    );
+    console.error("❌ SEQUELIZE CONNECTION ERROR:");
+    console.error("❌ Error Name:", err.name);
+    console.error("❌ Error Message:", err.message);
+    console.error("❌ Full Error:", err);
+    console.error("→ DB host:", process.env.DB_HOST, "port:", process.env.DB_PORT);
+    console.error("→ Kiểm tra: username/password, SSL, pooler Supabase có đang chạy?");
   }
 })();
 

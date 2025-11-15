@@ -31,7 +31,7 @@ const server = http.createServer(app);
 const allowedOrigins = [
   "http://localhost:3000", // Dev local
   process.env.FRONTEND_URL || "https://suli-coffee-web.vercel.app", // Production (stable URL mặc định)
-  "https://suli-coffee-cz66vb2dj-su-li-coffee.vercel.app", // URL tạm thời (remove sau khi switch)
+  "https://suli-coffee-cz66vb2dj-su-li-coffee.vercel.app", // URL tạm thời cho VNPay return
 ];
 
 const io = new socketIO.Server(server, {
