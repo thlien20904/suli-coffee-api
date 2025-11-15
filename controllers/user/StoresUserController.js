@@ -147,6 +147,7 @@ exports.getStoresSortedByDistance = async (req, res) => {
         Latitude: { [Op.ne]: null },
         Longitude: { [Op.ne]: null },
       },
+      limit: 100, // 🚀 Limit để tăng performance
       attributes: [
         "CuaHangId",
         "CuaHangName",
@@ -159,43 +160,44 @@ exports.getStoresSortedByDistance = async (req, res) => {
       ],
     });
 
-    // Tính khoảng cách bằng JS (Haversine)
-    const toRad = (x) => (x * Math.PI) / 180;
-    const R = 6371;
-    const storesWithDistance = storesList.map((store) => {
-      const dLat = toRad(userLat - store.Latitude);
-      const dLng = toRad(userLng - store.Longitude);
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(toRad(store.Latitude)) *
-          Math.cos(toRad(userLat)) *
-          Math.sin(dLng / 2) *
-          Math.sin(dLng / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      const distance = R * c;
-      return {
-        ...store,
-        distance,
-      };
-    });
+    // 🚀 Tối ưu tính khoảng cách - Pre-calculate constants
+    const DEG_TO_RAD = Math.PI / 180;
+    const userLatRad = userLat * DEG_TO_RAD;
+    const cosUserLat = Math.cos(userLatRad);
 
-    // Lọc cửa hàng trong bán kính 15km
-    const filteredStores = storesWithDistance.filter((s) => s.distance < 15);
-    // Sắp xếp theo khoảng cách tăng dần
-    filteredStores.sort((a, b) => a.distance - b.distance);
+    const storesWithDistance = storesList
+      .map((store) => {
+        const dLat = (userLat - store.Latitude) * DEG_TO_RAD;
+        const dLng = (userLng - store.Longitude) * DEG_TO_RAD;
+        const a =
+          Math.sin(dLat * 0.5) * Math.sin(dLat * 0.5) +
+          cosUserLat *
+            Math.cos(store.Latitude * DEG_TO_RAD) *
+            Math.sin(dLng * 0.5) *
+            Math.sin(dLng * 0.5);
+        const distance = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return {
+          ...store.dataValues,
+          distance: Math.round(distance * 100) / 100,
+        };
+      })
+      .sort((a, b) => a.distance - b.distance); // Sort tất cả trước
+
+    // 🔧 Nếu không có cửa hàng trong 15km, lấy 5 cửa hàng gần nhất
+    const nearbyStores = storesWithDistance.filter((s) => s.distance < 15);
+    const finalStores =
+      nearbyStores.length > 0
+        ? nearbyStores.slice(0, 20)
+        : storesWithDistance.slice(0, 5); // Fallback: 5 cửa hàng gần nhất
 
     console.log(
-      `[API] /nearest-all - Số cửa hàng trả về: ${filteredStores.length}`
+      `✅ [API] /nearest-all - Trả về ${finalStores.length} cửa hàng (${nearbyStores.length} trong 15km)`
     );
-    filteredStores.forEach((s, i) => {
-      console.log(
-        `[API] Store #${i + 1}: ${s.CuaHangName} - distance:`,
-        s.distance
-      );
-    });
+
     res.json({
       success: true,
-      data: filteredStores.map(parseStoreWithDistance),
+      data: finalStores.map(parseStoreWithDistance),
     });
   } catch (err) {
     console.error("❌ Lỗi sắp xếp cửa hàng theo khoảng cách:", err);
