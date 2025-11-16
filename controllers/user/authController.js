@@ -24,22 +24,39 @@ const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 
 // Create a nodemailer transport using environment variables
 function createTransport() {
+  console.log("🔧 createTransport STARTED");
   // Check for Gmail configuration first (most common for dev)
   const gmailUser = process.env.GMAIL_USER;
   const gmailPass = process.env.GMAIL_PASS;
+  console.log("🔧 Gmail config check:", {
+    user: gmailUser ? "SET" : "NOT_SET",
+    pass: gmailPass ? "SET" : "NOT_SET",
+  });
 
   if (gmailUser && gmailPass) {
     console.log("✅ Using Gmail SMTP:", gmailUser);
-    return nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: gmailUser,
-        pass: gmailPass,
-      },
-    });
+    try {
+      const transport = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: gmailUser,
+          pass: gmailPass,
+        },
+        connectionTimeout: 10000, // 10s timeout
+        greetingTimeout: 5000, // 5s timeout
+        socketTimeout: 10000, // 10s timeout
+      });
+      console.log("✅ Gmail transport created successfully");
+      return transport;
+    } catch (err) {
+      console.error("❌ Gmail transport creation failed:", err.message);
+      // Don't fallback to Ethereal, return null to fail fast
+      return null;
+    }
   }
 
   // Fallback to generic SMTP config
+  console.log("🔧 Checking generic SMTP config...");
   const host = process.env.SMTP_HOST;
   const port = process.env.SMTP_PORT
     ? Number(process.env.SMTP_PORT)
@@ -48,6 +65,7 @@ function createTransport() {
   const pass = process.env.SMTP_PASS;
 
   if (host && port && user && pass) {
+    console.log("✅ Using generic SMTP");
     return nodemailer.createTransport({
       host,
       port,
@@ -56,40 +74,24 @@ function createTransport() {
     });
   }
 
-  // Fallback: create a test account with Ethereal for development so emails can be previewed.
-  // This avoids returning 500 when SMTP isn't configured on dev machines.
-  console.warn(
-    "SMTP not configured — creating Ethereal test account for dev email previews. Set SMTP_* env vars for real email sending."
+  // NO Ethereal fallback - fail fast instead of hanging
+  console.error(
+    "❌ NO SMTP CONFIG - Please set GMAIL_USER/GMAIL_PASS in .env file"
   );
-
-  // Note: createTestAccount is async; but we want createTransport to return a ready transporter.
-  // We'll create and cache a test transporter on first call.
-  if (!createTransport._testTransportPromise) {
-    createTransport._testTransportPromise = (async () => {
-      const testAccount = await nodemailer.createTestAccount();
-      const t = nodemailer.createTransport({
-        host: "smtp.ethereal.email",
-        port: 587,
-        secure: false,
-        auth: { user: testAccount.user, pass: testAccount.pass },
-      });
-      // expose preview info
-      t._etherealAccount = testAccount;
-      return t;
-    })();
-  }
-
-  return createTransport._testTransportPromise;
+  return null;
 }
 
 async function sendVerificationEmail(toEmail, token, username) {
-  // createTransport may return a Promise (when using Ethereal fallback) or a transporter directly
-  let transporter = createTransport();
-  if (transporter && typeof transporter.then === "function") {
-    transporter = await transporter; // resolve test transporter
+  console.log("📧 sendVerificationEmail STARTED for:", toEmail);
+
+  const transporter = createTransport();
+
+  if (!transporter) {
+    console.error("❌ No transporter available");
+    return false;
   }
 
-  if (!transporter) return false;
+  console.log("✅ Transporter ready, preparing email...");
 
   const verifyUrl = `${BACKEND_URL}/api/auth/verify-email?token=${encodeURIComponent(
     token
@@ -194,18 +196,31 @@ async function sendVerificationEmail(toEmail, token, username) {
   };
 
   try {
-    const info = await transporter.sendMail(mailOptions);
+    console.log("📤 Sending email...");
+    const info = await Promise.race([
+      transporter.sendMail(mailOptions),
+      new Promise(
+        (_, reject) =>
+          setTimeout(() => reject(new Error("Email send timeout")), 15000) // 15s timeout
+      ),
+    ]);
+
+    console.log("✅ Email sent successfully, messageId:", info.messageId);
 
     // If transporter is ethereal (created above), log preview URL
     const testAccount = transporter._etherealAccount;
     if (testAccount) {
       const previewUrl = nodemailer.getTestMessageUrl(info);
-      console.info("Email preview URL (Ethereal):", previewUrl);
+      console.info("📧 Email preview URL (Ethereal):", previewUrl);
     }
 
     return true;
-  } catch (err) {
-    console.error("Gửi email xác nhận thất bại:", err);
+  } catch (sendErr) {
+    console.error("❌ Email send failed:", {
+      message: sendErr.message,
+      code: sendErr.code,
+      response: sendErr.response,
+    });
     return false;
   }
 }
@@ -223,8 +238,16 @@ const errObj = (field, msg) => ({ field, msg });
 // 📌 ĐĂNG KÝ NGƯỜI DÙNG
 // =========================
 exports.register = async (req, res) => {
+  console.log("🚀 REGISTER FUNCTION STARTED");
   try {
     const { username, email, password, fullName, phone, address } = req.body;
+    console.log("📝 REQUEST DATA:", {
+      username,
+      email,
+      fullName,
+      phone,
+      address,
+    });
 
     // Validate đầu vào
     const errs = [];
@@ -265,13 +288,11 @@ exports.register = async (req, res) => {
         usernameExists: exists.Username === username,
         emailExists: exists.Email === email,
       });
-      return res
-        .status(409)
-        .json({
-          success: false,
-          message: "Username hoặc Email đã tồn tại.",
-          errors,
-        });
+      return res.status(409).json({
+        success: false,
+        message: "Username hoặc Email đã tồn tại.",
+        errors,
+      });
     }
 
     // Hash mật khẩu nhưng chưa tạo user — gửi email xác nhận
@@ -289,7 +310,9 @@ exports.register = async (req, res) => {
     const verifyToken = signToken(verifyPayload, "24h");
 
     // Gửi email xác nhận
+    console.log("📧 STARTING EMAIL SEND PROCESS");
     const mailSent = await sendVerificationEmail(email, verifyToken, username);
+    console.log("📧 EMAIL SEND RESULT:", mailSent);
     if (!mailSent) {
       // Nếu SMTP không cấu hình hoặc gửi thất bại, trả lỗi rõ ràng
       return res.status(500).json({
@@ -427,22 +450,18 @@ exports.verifyEmail = async (req, res) => {
     try {
       payload = jwt.verify(token, JWT_SECRET);
     } catch (err) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Token không hợp lệ hoặc đã hết hạn.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Token không hợp lệ hoặc đã hết hạn.",
+      });
     }
 
     const { username, email, passwordHash, fullName, phone, address } = payload;
     if (!username || !email || !passwordHash) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Payload token thiếu thông tin cần thiết.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Payload token thiếu thông tin cần thiết.",
+      });
     }
 
     // Kiểm tra tồn tại trước khi tạo
