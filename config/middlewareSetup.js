@@ -147,7 +147,7 @@ function setupGoogleOAuth() {
       {
         clientID: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL: process.env.GOOGLE_CALLBACK_URL,
+        callbackURL: getCallbackURL(), // ✅ Use dynamic callback URL
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
@@ -242,28 +242,32 @@ async function setupDatabase(sql) {
  * Helper functions for OAuth URLs - SIMPLE & STABLE VERSION
  */
 const getCallbackURL = () => {
-  // Simple environment detection based on NODE_ENV and RENDER env var
-  const isProduction = process.env.NODE_ENV === "production" || process.env.RENDER;
+  // Specific production detection for Render deployment only
+  const isProduction = process.env.RENDER || 
+                      process.env.RENDER_SERVICE_ID ||
+                      (process.env.NODE_ENV === "production" && process.env.RENDER);
   
   if (isProduction) {
     const prodURL = process.env.GOOGLE_CALLBACK_URL_PROD || "https://suli-coffee.onrender.com/auth/google/callback";
-    console.log("🌍 Production mode detected, using:", prodURL);
+    console.log("🌍 Production deployment detected, using callback:", prodURL);
     return prodURL;
   } else {
     const currentPort = process.env.PORT || "5000";
     const devURL = `http://localhost:${currentPort}/auth/google/callback`;
-    console.log("🏠 Development mode detected, using:", devURL);
+    console.log("🏠 Detected localhost from request, using:", devURL);
     return devURL;
   }
 };
 
 const getFrontendURL = () => {
-  // Simple environment detection based on NODE_ENV and RENDER env var
-  const isProduction = process.env.NODE_ENV === "production" || process.env.RENDER;
+  // Specific production detection for Render deployment only  
+  const isProduction = process.env.RENDER || 
+                      process.env.RENDER_SERVICE_ID ||
+                      (process.env.NODE_ENV === "production" && process.env.RENDER);
   
   if (isProduction) {
     const prodURL = process.env.FRONTEND_URL || "https://suli-coffee-web.vercel.app";
-    console.log("🌍 Production mode detected, using frontend:", prodURL);
+    console.log("🌍 Production deployment detected, using production frontend:", prodURL);
     return prodURL;
   } else {
     console.log("🏠 Development mode detected, using localhost frontend");
