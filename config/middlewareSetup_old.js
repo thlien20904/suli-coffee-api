@@ -1,4 +1,4 @@
-// config/middlewareSetup.js - Chứa logic setup middleware (Fixed version)
+// config/middlewareSetup.js - Chứa logic setup middleware
 const cors = require("cors");
 const express = require("express");
 const passport = require("passport");
@@ -6,6 +6,7 @@ const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const path = require("path");
 const fs = require("fs");
 const bcrypt = require("bcryptjs");
+const multer = require("multer");
 const createCSPMiddleware = require("../cspMiddleware");
 const createClickjackingMiddleware = require("../clickjackingMiddleware");
 const { securityHeaders } = require("../securityHeaders");
@@ -72,7 +73,9 @@ function setupMiddleware(app, io = null) {
 
   /* ---------------- CSP MIDDLEWARE (CONDITIONAL) ---------------- */
   // ✅ Skip CSP middleware in separate deployment mode
-  console.log("⚠️ CSP middleware disabled (separate frontend/backend deployment)");
+  console.log(
+    "⚠️ CSP middleware disabled (separate frontend/backend deployment)"
+  );
 
   // Serve API info at root for production
   app.get("/", (req, res) => {
@@ -239,38 +242,104 @@ async function setupDatabase(sql) {
 }
 
 /**
- * Helper functions for OAuth URLs - SIMPLE & STABLE VERSION
+ * Helper functions for OAuth URLs
  */
-const getCallbackURL = () => {
-  // Simple environment detection based on NODE_ENV and RENDER env var
-  const isProduction = process.env.NODE_ENV === "production" || process.env.RENDER;
-  
+const getCallbackURL = (req = null) => {
+  // If we have request object, use actual host to determine environment
+  if (req && req.get) {
+    const currentHost = req.get("host");
+    const isLocalhost =
+      currentHost &&
+      (currentHost.includes("localhost") || currentHost.includes("127.0.0.1"));
+
+    if (isLocalhost) {
+      const devURL = `http://${currentHost}/auth/google/callback`;
+      console.log("🏠 Detected localhost from request, using:", devURL);
+      return devURL;
+    } else {
+      const prodURL = `https://${currentHost}/auth/google/callback`;
+      console.log("🌍 Detected production host from request, using:", prodURL);
+      return prodURL;
+    }
+  }
+
+  // Fallback: Check if we're in production deployment based on reliable indicators
+  const isProduction =
+    process.env.RENDER || // Render deployment
+    process.env.VERCEL_URL || // Vercel deployment
+    process.env.NODE_ENV === "production" ||
+    (process.env.GOOGLE_CALLBACK_URL_PROD && !process.env.LOCAL_DEV);
+
   if (isProduction) {
-    const prodURL = process.env.GOOGLE_CALLBACK_URL_PROD || "https://suli-coffee.onrender.com/auth/google/callback";
-    console.log("🌍 Production mode detected, using:", prodURL);
+    const prodURL =
+      process.env.GOOGLE_CALLBACK_URL_PROD ||
+      "https://suli-coffee.onrender.com/auth/google/callback";
+    console.log("🌍 Production deployment detected, using:", prodURL);
     return prodURL;
   } else {
     const currentPort = process.env.PORT || "5000";
     const devURL = `http://localhost:${currentPort}/auth/google/callback`;
-    console.log("🏠 Development mode detected, using:", devURL);
+    console.log("🏠 Local development detected, using:", devURL);
     return devURL;
   }
 };
 
-const getFrontendURL = () => {
-  // Simple environment detection based on NODE_ENV and RENDER env var
-  const isProduction = process.env.NODE_ENV === "production" || process.env.RENDER;
-  
+const getFrontendURL = (req = null) => {
+  // If we have request object, use referer/origin to determine frontend URL
+  if (req && req.get) {
+    const origin = req.get("origin");
+    const referer = req.get("referer");
+
+    // Check if request came from localhost frontend
+    if (origin && origin.includes("localhost:3000")) {
+      console.log(
+        "🏠 Detected localhost frontend from request origin:",
+        origin
+      );
+      return "http://localhost:3000";
+    }
+
+    if (referer && referer.includes("localhost:3000")) {
+      console.log("🏠 Detected localhost frontend from referer:", referer);
+      return "http://localhost:3000";
+    }
+
+    // Check if request came from production frontend
+    if (origin && origin.includes("vercel.app")) {
+      console.log(
+        "🌍 Detected production frontend from request origin:",
+        origin
+      );
+      return origin;
+    }
+
+    if (referer && referer.includes("vercel.app")) {
+      const frontendURL = new URL(referer).origin;
+      console.log("🌍 Detected production frontend from referer:", frontendURL);
+      return frontendURL;
+    }
+  }
+
+  // Fallback: Check if we're in production deployment based on reliable indicators
+  const isProduction =
+    process.env.RENDER || // Render deployment
+    process.env.VERCEL_URL || // Vercel deployment
+    process.env.NODE_ENV === "production" ||
+    (process.env.FRONTEND_URL && !process.env.LOCAL_DEV);
+
   if (isProduction) {
-    const prodURL = process.env.FRONTEND_URL || "https://suli-coffee-web.vercel.app";
-    console.log("🌍 Production mode detected, using frontend:", prodURL);
+    const prodURL =
+      process.env.FRONTEND_URL || "https://suli-coffee-web.vercel.app";
+    console.log(
+      "🌍 Production deployment detected, using production frontend:",
+      prodURL
+    );
     return prodURL;
   } else {
-    console.log("🏠 Development mode detected, using localhost frontend");
+    console.log("🏠 Local development detected, using localhost frontend");
     return "http://localhost:3000";
   }
 };
-
 module.exports = {
   setupMiddleware,
   setupGoogleOAuth,

@@ -117,7 +117,7 @@ app.get(
   "/auth/google",
   (req, res, next) => {
     console.log("[Google OAuth] Initiating Google authentication...");
-    console.log("[Google OAuth] Callback URL will be:", getCallbackURL(req));
+    console.log("[Google OAuth] Callback URL will be:", getCallbackURL());
     next();
   },
   passport.authenticate("google", {
@@ -139,7 +139,7 @@ app.get(
 
       if (!req.user) {
         console.error("[Google OAuth Callback] No user data received!");
-        return res.redirect(`${getFrontendURL(req)}/login?error=no_user_data`);
+        return res.redirect(`${getFrontendURL()}/login?error=no_user_data`);
       }
 
       const token = jwt.sign(
@@ -157,12 +157,7 @@ app.get(
       console.log(
         "[Google OAuth Callback] JWT created, redirecting to frontend..."
       );
-      const frontendUrl = getFrontendURL(req);
-      console.log(
-        "[Google OAuth Callback] Frontend URL determined as:",
-        frontendUrl
-      );
-
+      const frontendUrl = getFrontendURL();
       res.redirect(
         `${frontendUrl}/login?token=${token}&role=${(
           req.user.Role || "user"
@@ -170,7 +165,7 @@ app.get(
       );
     } catch (err) {
       console.error("[Google OAuth Callback] Error:", err);
-      res.redirect(`${getFrontendURL(req)}/login?error=callback_error`);
+      res.redirect(`${getFrontendURL()}/login?error=callback_error`);
     }
   }
 );
@@ -276,10 +271,10 @@ app.get("/csp", (req, res) => {
 
 // Health check endpoint
 app.get("/health", (req, res) => {
-  res.json({
-    status: "OK",
+  res.json({ 
+    status: "OK", 
     timestamp: new Date().toISOString(),
-    mode: process.env.NODE_ENV || "development",
+    mode: process.env.NODE_ENV || "development"
   });
 });
 
