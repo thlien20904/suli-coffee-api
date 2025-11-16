@@ -72,7 +72,9 @@ function setupMiddleware(app, io = null) {
 
   /* ---------------- CSP MIDDLEWARE (CONDITIONAL) ---------------- */
   // ✅ Skip CSP middleware in separate deployment mode
-  console.log("⚠️ CSP middleware disabled (separate frontend/backend deployment)");
+  console.log(
+    "⚠️ CSP middleware disabled (separate frontend/backend deployment)"
+  );
 
   // Serve API info at root for production
   app.get("/", (req, res) => {
@@ -243,12 +245,15 @@ async function setupDatabase(sql) {
  */
 const getCallbackURL = () => {
   // Specific production detection for Render deployment only
-  const isProduction = process.env.RENDER || 
-                      process.env.RENDER_SERVICE_ID ||
-                      (process.env.NODE_ENV === "production" && process.env.RENDER);
-  
+  const isProduction =
+    process.env.RENDER ||
+    process.env.RENDER_SERVICE_ID ||
+    (process.env.NODE_ENV === "production" && process.env.RENDER);
+
   if (isProduction) {
-    const prodURL = process.env.GOOGLE_CALLBACK_URL_PROD || "https://suli-coffee.onrender.com/auth/google/callback";
+    const prodURL =
+      process.env.GOOGLE_CALLBACK_URL_PROD ||
+      "https://suli-coffee.onrender.com/auth/google/callback";
     console.log("🌍 Production deployment detected, using callback:", prodURL);
     return prodURL;
   } else {
@@ -260,14 +265,19 @@ const getCallbackURL = () => {
 };
 
 const getFrontendURL = () => {
-  // Specific production detection for Render deployment only  
-  const isProduction = process.env.RENDER || 
-                      process.env.RENDER_SERVICE_ID ||
-                      (process.env.NODE_ENV === "production" && process.env.RENDER);
-  
+  // Specific production detection for Render deployment only
+  const isProduction =
+    process.env.RENDER ||
+    process.env.RENDER_SERVICE_ID ||
+    (process.env.NODE_ENV === "production" && process.env.RENDER);
+
   if (isProduction) {
-    const prodURL = process.env.FRONTEND_URL || "https://suli-coffee-web.vercel.app";
-    console.log("🌍 Production deployment detected, using production frontend:", prodURL);
+    const prodURL =
+      process.env.FRONTEND_URL || "https://suli-coffee-web.vercel.app";
+    console.log(
+      "🌍 Production deployment detected, using production frontend:",
+      prodURL
+    );
     return prodURL;
   } else {
     console.log("🏠 Development mode detected, using localhost frontend");

@@ -29,21 +29,26 @@ const { Users } = initModels(sequelize);
 dotenv.config();
 
 // 🛡️ Global error handlers for database issues
-process.on('uncaughtException', (error) => {
-  console.error('🚨 Uncaught Exception:', error.message);
-  if (error.message.includes('db_termination') || error.message.includes('Connection terminated')) {
-    console.log('🔄 Database connection issue detected, attempting to reconnect...');
+process.on("uncaughtException", (error) => {
+  console.error("🚨 Uncaught Exception:", error.message);
+  if (
+    error.message.includes("db_termination") ||
+    error.message.includes("Connection terminated")
+  ) {
+    console.log(
+      "🔄 Database connection issue detected, attempting to reconnect..."
+    );
     // Don't exit process, let the connection pool handle reconnection
   } else {
-    console.error('💥 Critical error, shutting down gracefully...');
+    console.error("💥 Critical error, shutting down gracefully...");
     process.exit(1);
   }
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
-  if (reason?.message?.includes('db_termination')) {
-    console.log('🔄 Database rejection detected, will retry...');
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("🚨 Unhandled Rejection at:", promise, "reason:", reason);
+  if (reason?.message?.includes("db_termination")) {
+    console.log("🔄 Database rejection detected, will retry...");
   }
 });
 
@@ -290,10 +295,10 @@ app.get("/csp", (req, res) => {
 
 // Health check endpoint
 app.get("/health", (req, res) => {
-  res.json({ 
-    status: "OK", 
+  res.json({
+    status: "OK",
     timestamp: new Date().toISOString(),
-    mode: process.env.NODE_ENV || "development"
+    mode: process.env.NODE_ENV || "development",
   });
 });
 
