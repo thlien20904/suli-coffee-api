@@ -23,10 +23,19 @@ const { Users } = models;
 function setupMiddleware(app, io = null) {
   console.log("🔧 Setting up middleware...");
 
+  /* ---------------- CORS CONFIGURATION ---------------- */
+  // Dynamic CORS origins based on environment
+  const allowedOrigins = [
+    "http://localhost:3000", // Local development
+    "https://suli-coffee-web.vercel.app", // Production frontend
+  ];
+
+  console.log("🌐 CORS allowed origins:", allowedOrigins);
+
   /* ---------------- BASIC MIDDLEWARE ---------------- */
   app.use(
     cors({
-      origin: "http://localhost:3000", // Local development
+      origin: allowedOrigins,
       credentials: true,
     })
   );
