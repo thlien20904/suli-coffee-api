@@ -88,20 +88,28 @@ app.get("/debug/oauth-config", (req, res) => {
     environment: {
       NODE_ENV: process.env.NODE_ENV,
       PORT: process.env.PORT,
-      VERCEL: process.env.VERCEL,
       RENDER: process.env.RENDER,
+      VERCEL: process.env.VERCEL,
       VERCEL_URL: process.env.VERCEL_URL,
+      LOCAL_DEV: process.env.LOCAL_DEV,
+      HOST: req.get("host"),
+      HOSTNAME: req.hostname,
     },
     oauth: {
       GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID?.substring(0, 20) + "...",
       GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL,
       GOOGLE_CALLBACK_URL_PROD: process.env.GOOGLE_CALLBACK_URL_PROD,
+      FRONTEND_URL: process.env.FRONTEND_URL,
       detectedCallbackURL: callbackURL,
       detectedFrontendURL: frontendURL,
     },
-    currentHost: req.get("host"),
-    userAgent: req.get("User-Agent"),
-    fullURL: `${req.protocol}://${req.get("host")}${req.originalUrl}`,
+    request: {
+      currentHost: req.get("host"),
+      userAgent: req.get("User-Agent"),
+      fullURL: `${req.protocol}://${req.get("host")}${req.originalUrl}`,
+      origin: req.get("origin"),
+      referer: req.get("referer"),
+    },
   });
 });
 
@@ -109,7 +117,7 @@ app.get(
   "/auth/google",
   (req, res, next) => {
     console.log("[Google OAuth] Initiating Google authentication...");
-    console.log("[Google OAuth] Callback URL will be:", getCallbackURL());
+    console.log("[Google OAuth] Callback URL will be:", getCallbackURL(req));
     next();
   },
   passport.authenticate("google", {
@@ -131,7 +139,7 @@ app.get(
 
       if (!req.user) {
         console.error("[Google OAuth Callback] No user data received!");
-        return res.redirect(`${getFrontendURL()}/login?error=no_user_data`);
+        return res.redirect(`${getFrontendURL(req)}/login?error=no_user_data`);
       }
 
       const token = jwt.sign(
@@ -149,7 +157,12 @@ app.get(
       console.log(
         "[Google OAuth Callback] JWT created, redirecting to frontend..."
       );
-      const frontendUrl = getFrontendURL();
+      const frontendUrl = getFrontendURL(req);
+      console.log(
+        "[Google OAuth Callback] Frontend URL determined as:",
+        frontendUrl
+      );
+
       res.redirect(
         `${frontendUrl}/login?token=${token}&role=${(
           req.user.Role || "user"
@@ -157,7 +170,7 @@ app.get(
       );
     } catch (err) {
       console.error("[Google OAuth Callback] Error:", err);
-      res.redirect(`${getFrontendURL()}/login?error=callback_error`);
+      res.redirect(`${getFrontendURL(req)}/login?error=callback_error`);
     }
   }
 );
@@ -263,10 +276,10 @@ app.get("/csp", (req, res) => {
 
 // Health check endpoint
 app.get("/health", (req, res) => {
-  res.json({ 
-    status: "OK", 
+  res.json({
+    status: "OK",
     timestamp: new Date().toISOString(),
-    mode: process.env.NODE_ENV || "development"
+    mode: process.env.NODE_ENV || "development",
   });
 });
 
