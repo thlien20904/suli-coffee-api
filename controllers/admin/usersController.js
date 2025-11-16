@@ -10,7 +10,7 @@ const { Users } = models;
 exports.getAllUsers = async (req, res) => {
   try {
     const users = await Users.findAll({
-      where: { Role: { [sequelize.Sequelize.Op.ne]: "Admin" } },
+      where: { Role: { [sequelize.Sequelize.Op.ne]: "admin" } }, // ✅ FIX: Đổi "Admin" → "admin" (lowercase, khớp DB từ table screenshot)
       order: [["CreatedDate", "DESC"]],
     });
     res.json({ success: true, data: users });
@@ -45,7 +45,7 @@ exports.getUserById = async (req, res) => {
 exports.banUser = async (req, res) => {
   try {
     const id = req.params.id;
-    const user = await Users.findOne({ where: { Id: id, Role: { [sequelize.Sequelize.Op.ne]: "Admin" } } });
+    const user = await Users.findOne({ where: { Id: id, Role: { [sequelize.Sequelize.Op.ne]: "admin" } } }); // ✅ FIX: Đổi "Admin" → "admin" (khớp DB)
     if (!user) {
       return res.status(404).json({ success: false, message: "Không tìm thấy user hoặc không thể cấm admin" });
     }
@@ -66,7 +66,7 @@ exports.banUser = async (req, res) => {
 exports.unbanUser = async (req, res) => {
   try {
     const id = req.params.id;
-    const user = await Users.findOne({ where: { Id: id, Role: { [sequelize.Sequelize.Op.ne]: "Admin" } } });
+    const user = await Users.findOne({ where: { Id: id, Role: { [sequelize.Sequelize.Op.ne]: "admin" } } }); // ✅ FIX: Đổi "Admin" → "admin" (khớp DB)
     if (!user) {
       return res.status(404).json({ success: false, message: "Không tìm thấy user hoặc không thể bỏ cấm admin" });
     }

@@ -1,5 +1,5 @@
 const express = require("express");
-const { poolPromise } = require("../../db");
+const { poolPromise } = require("../../config/db");
 const sql = require("mssql");
 
 const router = express.Router();

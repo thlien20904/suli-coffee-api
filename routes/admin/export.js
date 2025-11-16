@@ -1,7 +1,7 @@
 // routes/admin/export.js
 const express = require("express");
 const router = express.Router();
-const { poolPromise } = require("../../db");
+const { poolPromise } = require("../../config/db");
 const ExcelJS = require("exceljs");
 
 // ================== EXPORT NGUYÊN LIỆU RA EXCEL ==================
@@ -53,7 +53,10 @@ router.get("/", async (req, res) => {
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
-    res.setHeader("Content-Disposition", "attachment; filename=NguyenLieu.xlsx");
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=NguyenLieu.xlsx"
+    );
 
     await workbook.xlsx.write(res);
     res.end();

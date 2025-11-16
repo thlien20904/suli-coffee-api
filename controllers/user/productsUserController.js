@@ -56,10 +56,6 @@ const sortToOrderBy = (sort) => {
 };
 
 
-// =========================
-// 📌 LẤY DANH SÁCH SẢN PHẨM
-// =========================
-// =========================
 // 📌 LẤY DANH SÁCH SẢN PHẨM
 // =========================
 exports.getProducts = async (req, res) => {

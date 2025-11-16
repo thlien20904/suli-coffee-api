@@ -224,6 +224,28 @@ exports.addVoucher = async (req, res) => {
       });
     }
 
+    // Kiểm tra ExpiryDate format
+    const expiryDateStr = String(ExpiryDate).trim();
+    if (
+      !expiryDateStr ||
+      expiryDateStr === "null" ||
+      expiryDateStr === "undefined"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "ExpiryDate không hợp lệ",
+      });
+    }
+
+    // Kiểm tra format ngày
+    const expiryDate = new Date(expiryDateStr);
+    if (isNaN(expiryDate.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "ExpiryDate phải có format ngày hợp lệ",
+      });
+    }
+
     const code = String(Code).trim();
     const exists = await Vouchers.findOne({ where: { Code: code } });
     if (exists) {
@@ -233,7 +255,7 @@ exports.addVoucher = async (req, res) => {
       });
     }
 
-    const expiry = ExpiryDate.trim() + " 00:00:00";
+    const expiry = expiryDate.toISOString().slice(0, 10) + " 00:00:00";
 
     await Vouchers.create({
       Code: code,
@@ -284,6 +306,28 @@ exports.editVoucher = async (req, res) => {
       });
     }
 
+    // Kiểm tra ExpiryDate format
+    const expiryDateStr = String(ExpiryDate).trim();
+    if (
+      !expiryDateStr ||
+      expiryDateStr === "null" ||
+      expiryDateStr === "undefined"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "ExpiryDate không hợp lệ",
+      });
+    }
+
+    // Kiểm tra format ngày
+    const expiryDate = new Date(expiryDateStr);
+    if (isNaN(expiryDate.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "ExpiryDate phải có format ngày hợp lệ",
+      });
+    }
+
     // Tìm voucher hiện tại
     const voucher = await Vouchers.findByPk(id);
     if (!voucher) {
@@ -310,8 +354,8 @@ exports.editVoucher = async (req, res) => {
       });
     }
 
-    // Chuẩn hóa ngày
-    const expiry = ExpiryDate.trim() + " 00:00:00";
+    // Chuẩn hóa ngày - sử dụng expiryDate đã validate
+    const expiry = expiryDate.toISOString().slice(0, 10) + " 00:00:00";
 
     // Cập nhật
     await voucher.update({

@@ -1,23 +1,30 @@
+// controllers/admin/homeController.js
 const sequelize = require("../../config/sequelize");
 const initModels = require("../../models/init-models");
 const models = initModels(sequelize);
 const { Sequelize, Op } = require("sequelize");
 
 const { Food, Ingredient, Orders, OrderStatus, OrderDetails, Users } = models;
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:5000";
 
-/* =====================================================
-   📊 DASHBOARD HOME ADMIN
-   GET /api/admin/home
-===================================================== */
+// ------------------- HELPER -------------------
+const formatImage = (img) =>
+  !img
+    ? `${BACKEND_URL}/images/no-image.png`
+    : img.includes("://") // ✅ FIX: Kiểm tra full URL bằng '://' (http:// hoặc https://)
+    ? img
+    : `${BACKEND_URL}${img}`; // Chỉ prepend nếu là relative path (không có protocol)
+
+// ------------------- DASHBOARD HOME ADMIN -------------------
 exports.getHome = async (req, res) => {
   try {
-    // 1. Tổng sản phẩm & nguyên liệu
+    // 1️⃣ Tổng sản phẩm & nguyên liệu
     const [totalProducts, totalIngredients] = await Promise.all([
       Food.count(),
       Ingredient.count(),
     ]);
 
-    // 2. Trạng thái đơn hàng
+    // 2️⃣ Trạng thái đơn hàng
     const statuses = await OrderStatus.findAll();
     const statusCount = {};
     for (const st of statuses) {
@@ -25,59 +32,38 @@ exports.getHome = async (req, res) => {
       statusCount[st.StatusName] = count;
     }
 
-    // Tổng đơn hàng và doanh thu
+    // 3️⃣ Tổng đơn hàng & doanh thu
     const [totalOrders, totalSalesRes] = await Promise.all([
       Orders.count(),
       Orders.sum("TotalAmount"),
     ]);
     const totalSales = totalSalesRes || 0;
 
-    // 3. Doanh thu theo tháng (năm hiện tại) - Fix PostgreSQL query
+    // 4️⃣ Doanh thu theo tháng (năm hiện tại)
     const currentYear = new Date().getFullYear();
-    console.log("📅 Current year:", currentYear);
-
-    // Use raw SQL for PostgreSQL compatibility
-    const monthlySales = await sequelize.query(
+    const monthlySalesRaw = await sequelize.query(
       `
       SELECT 
-        EXTRACT(MONTH FROM "OrderDate")::INTEGER as "Month",
-        SUM("TotalAmount")::FLOAT as "TotalRevenue"
-      FROM "Orders" 
-      WHERE "OrderDate" >= '${currentYear}-01-01' 
+        EXTRACT(MONTH FROM "OrderDate")::INTEGER AS "Month",
+        SUM("TotalAmount")::FLOAT AS "TotalRevenue"
+      FROM "Orders"
+      WHERE "OrderDate" >= '${currentYear}-01-01'
         AND "OrderDate" <= '${currentYear}-12-31'
       GROUP BY EXTRACT(MONTH FROM "OrderDate")
       ORDER BY EXTRACT(MONTH FROM "OrderDate") ASC
-    `,
-      {
-        type: Sequelize.QueryTypes.SELECT,
-      }
+      `,
+      { type: Sequelize.QueryTypes.SELECT }
     );
 
-    console.log(
-      "📊 Raw monthly sales from DB:",
-      JSON.stringify(monthlySales, null, 2)
-    );
-
-    const monthlySalesArray = Array.from({ length: 12 }, (_, i) => {
-      const found = monthlySales.find((r) => r.Month === i + 1);
-      const revenue = found ? parseFloat(found.TotalRevenue) : 0;
-      console.log(`📅 Month ${i + 1}:`, {
-        found: !!found,
-        revenue,
-        raw: found,
-      });
+    const monthlySales = Array.from({ length: 12 }, (_, i) => {
+      const found = monthlySalesRaw.find((r) => r.Month === i + 1);
       return {
         Month: i + 1,
-        TotalRevenue: revenue,
+        TotalRevenue: found ? parseFloat(found.TotalRevenue) : 0,
       };
     });
 
-    console.log(
-      "📊 Final monthly sales array:",
-      JSON.stringify(monthlySalesArray, null, 2)
-    );
-
-    // 4. Sản phẩm bán chạy (top 3) - Separate query to avoid group with include
+    // 5️⃣ Sản phẩm bán chạy (top 3)
     const topFoodIds = await OrderDetails.findAll({
       attributes: [
         "FoodId",
@@ -88,58 +74,54 @@ exports.getHome = async (req, res) => {
       limit: 3,
     });
 
-    const bestSellersProcessed = await Promise.all(
+    const bestSellers = await Promise.all(
       topFoodIds.map(async (item) => {
         const food = await Food.findByPk(item.FoodId, {
           attributes: ["FoodName", "Price", "ImageURL"],
         });
+
         return {
           FoodId: item.FoodId,
           TotalSold: parseInt(item.dataValues.TotalSold),
-          FoodName: food ? food.FoodName : "N/A",
-          Price: food ? food.Price : 0,
-          ImageURL:
-            food && food.ImageURL
-              ? `http://localhost:5000${food.ImageURL}`
-              : `http://localhost:5000/images/no-image.png`,
+          FoodName: food?.FoodName || "N/A",
+          Price: food?.Price || 0,
+          ImageURL: formatImage(food?.ImageURL),
         };
       })
     );
 
-    // 5. Nguyên liệu sắp hết (<10)
-    const lowStock = await Ingredient.findAll({
+    // 6️⃣ Nguyên liệu sắp hết (<10)
+    const lowStockRaw = await Ingredient.findAll({
       where: { SoLuong: { [Op.lt]: 10 } },
     });
 
-    const lowStockProcessed = lowStock.map((item) => ({
+    const lowStockIngredients = lowStockRaw.map((item) => ({
       ...item.dataValues,
-      ImageURL: item.ImageURL
-        ? `http://localhost:5000${item.ImageURL}`
-        : `http://localhost:5000/images/no-image.png`,
+      ImageURL: formatImage(item.ImageURL),
     }));
 
-    // 6. Top Address (GROUP BY Address in Users) - Raw SQL fix for MSSQL
+    // 7️⃣ Top Address (GROUP BY Address in Users)
     const topAddressesRaw = await sequelize.query(
       `
-  SELECT COALESCE(u."Address", 'Unknown') AS "Address",
-         COUNT(o."OrderId") AS "OrderCount"
-  FROM "Users" u
-  LEFT JOIN "Orders" o ON u."Id" = o."UserId"
-  WHERE u."Address" IS NOT NULL
-  GROUP BY u."Address"
-  ORDER BY "OrderCount" DESC
-  LIMIT 5;
-  `,
+      SELECT COALESCE(u."Address", 'Unknown') AS "Address",
+             COUNT(o."OrderId") AS "OrderCount"
+      FROM "Users" u
+      LEFT JOIN "Orders" o ON u."Id" = o."UserId"
+      WHERE u."Address" IS NOT NULL
+      GROUP BY u."Address"
+      ORDER BY "OrderCount" DESC
+      LIMIT 5;
+      `,
       { type: Sequelize.QueryTypes.SELECT }
     );
 
-    const topAddressesProcessed = topAddressesRaw.map((item) => ({
+    const topAddresses = topAddressesRaw.map((item) => ({
       Address: item.Address,
       OrderCount: parseInt(item.OrderCount),
     }));
 
-    // 7. Đơn hàng gần đây (top 5)
-    const recentOrders = await Orders.findAll({
+    // 8️⃣ Đơn hàng gần đây (top 5)
+    const recentOrdersRaw = await Orders.findAll({
       attributes: ["OrderId", "OrderDate", "TotalAmount", "StatusId"],
       include: [
         { model: Users, as: "User", attributes: ["FullName"], required: true },
@@ -154,7 +136,7 @@ exports.getHome = async (req, res) => {
       limit: 5,
     });
 
-    const recentOrdersProcessed = recentOrders.map((item) => ({
+    const recentOrders = recentOrdersRaw.map((item) => ({
       OrderId: item.OrderId,
       FullName: item.User.FullName,
       StatusName: item.Status.StatusName,
@@ -162,7 +144,7 @@ exports.getHome = async (req, res) => {
       TotalAmount: item.TotalAmount,
     }));
 
-    // Hardcoded customers need help
+    // 9️⃣ Khách hàng cần hỗ trợ (hardcoded)
     const customersNeedHelp = [
       {
         CustomerName: "Laila Tazkiah",
@@ -181,17 +163,18 @@ exports.getHome = async (req, res) => {
       },
     ];
 
+    // 10️⃣ Trả về JSON
     res.json({
       totalProducts,
       totalIngredients,
       statusCount,
       totalOrders,
       totalSales,
-      monthlySales: monthlySalesArray,
-      bestSellers: bestSellersProcessed,
-      lowStockIngredients: lowStockProcessed,
-      topAddresses: topAddressesProcessed,
-      recentOrders: recentOrdersProcessed,
+      monthlySales,
+      bestSellers,
+      lowStockIngredients,
+      topAddresses,
+      recentOrders,
       customersNeedHelp,
     });
   } catch (err) {

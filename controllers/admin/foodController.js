@@ -15,7 +15,7 @@ const models = initModels(sequelize);
 const { Food, Category, FoodIngredient, Ingredient, GioHang, OrderDetails } =
   models;
 
-const HOST = "http://localhost:5000";
+const HOST = process.env.API_URL || "http://localhost:5000";
 
 // ------------------- MULTER UPLOAD (Memory Storage for Supabase) -------------------
 const storage = multer.memoryStorage();

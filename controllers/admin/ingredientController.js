@@ -56,25 +56,64 @@ const formatImageURL = (imgPath) => {
 // ==================== LẤY TẤT CẢ NGUYÊN LIỆU ====================
 exports.getAllIngredients = async (req, res) => {
   try {
-    const ingredients = await Ingredient.findAll({
-      order: [["IngredientId", "DESC"]],
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search?.trim() || "";
+    const sort = req.query.sort?.trim() || "";
+    const offset = (page - 1) * limit;
+
+    const where = search
+      ? { IngredientName: { [Op.like]: `%${search}%` } }
+      : {};
+    const order =
+      sort === "SoLuong asc"
+        ? [["SoLuong", "ASC"]]
+        : sort === "SoLuong desc"
+        ? [["SoLuong", "DESC"]]
+        : [["IngredientId", "DESC"]];
+
+    const { count, rows } = await Ingredient.findAndCountAll({
+      where,
+      order,
+      limit,
+      offset,
       include: [
         {
-          model: Food,
-          as: "Foods", // <-- PHẢI KHỚP VỚI HASMANY Food alias
-          attributes: ["FoodName"],
+          model: FoodIngredient,
+          as: "FoodIngredients", // Alias cho Ingredient hasMany FoodIngredient
+          include: [
+            {
+              model: Food,
+              as: "Food", // Alias cho FoodIngredient belongsTo Food
+              attributes: ["FoodName"],
+            },
+          ],
         },
       ],
+      distinct: true,
     });
 
-    const data = ingredients.map((item) => {
+    const data = rows.map((item) => {
       const plain = item.get({ plain: true });
-      plain.Foods = plain.Foods?.map((f) => f.FoodName).join(", ") || "";
+      plain.Foods =
+        (plain.FoodIngredients || [])
+          .map((fi) => fi.Food.FoodName)
+          .join(", ") || "";
       plain.ImageURL = formatImageURL(plain.ImageURL);
+      delete plain.FoodIngredients; // Clean up
       return plain;
     });
 
-    res.json({ success: true, data });
+    res.json({
+      success: true,
+      data,
+      pagination: {
+        total: count,
+        page,
+        limit,
+        totalPages: Math.ceil(count / limit),
+      },
+    });
   } catch (err) {
     handleControllerError(err, res);
   }
@@ -86,9 +125,15 @@ exports.getIngredientById = async (req, res) => {
     const ingredient = await Ingredient.findByPk(req.params.id, {
       include: [
         {
-          model: Food,
-          as: "Foods", // <-- PHẢI KHỚP
-          attributes: ["FoodId", "FoodName"],
+          model: FoodIngredient,
+          as: "FoodIngredients",
+          include: [
+            {
+              model: Food,
+              as: "Food",
+              attributes: ["FoodId", "FoodName"],
+            },
+          ],
         },
       ],
     });
@@ -99,11 +144,15 @@ exports.getIngredientById = async (req, res) => {
         .json({ success: false, message: "Không tìm thấy nguyên liệu." });
 
     const data = ingredient.get({ plain: true });
-    const selectedFoods = data.Foods?.map((f) => f.FoodId) || [];
     data.ImageURL = formatImageURL(data.ImageURL);
-    delete data.Foods;
+    data.Foods = (data.FoodIngredients || []).map((fi) => ({
+      FoodId: fi.Food.FoodId,
+      FoodName: fi.Food.FoodName,
+      Quantity: fi.Quantity || 1, // Giả sử có Quantity trong FoodIngredient
+    }));
+    delete data.FoodIngredients;
 
-    res.json({ success: true, ingredient: data, selectedFoods });
+    res.json({ success: true, data });
   } catch (err) {
     handleControllerError(err, res);
   }
@@ -111,24 +160,29 @@ exports.getIngredientById = async (req, res) => {
 
 // ==================== THÊM NGUYÊN LIỆU ====================
 exports.addIngredient = async (req, res) => {
-  const transaction = await sequelize.transaction();
+  const t = await sequelize.transaction();
   try {
-    const { IngredientName, SoLuong, PhanLoai, Foods } = req.body;
-    if (!IngredientName || !SoLuong || SoLuong <= 0)
+    const { IngredientName, SoLuong, PhanLoai = "Khác" } = req.body;
+
+    // Validate
+    if (!IngredientName?.trim() || !SoLuong || SoLuong <= 0)
       return res
         .status(400)
-        .json({ success: false, message: "Tên hoặc số lượng không hợp lệ." });
+        .json({
+          success: false,
+          message: "Tên nguyên liệu và số lượng phải hợp lệ (>0).",
+        });
 
-    const existing = await Ingredient.findOne({
-      where: { IngredientName },
-      transaction,
+    const exist = await Ingredient.findOne({
+      where: { IngredientName: IngredientName.trim() },
+      transaction: t,
     });
-    if (existing)
+    if (exist)
       return res
         .status(400)
         .json({ success: false, message: "Tên nguyên liệu đã tồn tại." });
 
-    let imageUrl = "/images/no-image.png"; // Default fallback
+    let imageUrl = `${HOST}/images/no-image.png`; // Default local fallback, but use Supabase no-image if possible
 
     // Upload image to Supabase if provided
     if (req.file) {
@@ -137,85 +191,112 @@ exports.addIngredient = async (req, res) => {
         req.file.originalname,
         "nguyenlieu" // folder name for ingredients
       );
+
       if (uploadResult.success) {
-        imageUrl = uploadResult.url; // Full Supabase URL
+        imageUrl = uploadResult.url;
+        console.log("✅ Ingredient image uploaded to Supabase:", imageUrl);
       } else {
-        await transaction.rollback();
+        console.error(
+          "❌ Failed to upload ingredient image:",
+          uploadResult.error
+        );
         return res.status(500).json({
           success: false,
-          message: `Lỗi upload ảnh: ${uploadResult.error}`,
+          message: "Lỗi upload ảnh: " + uploadResult.error,
         });
       }
     }
 
-    const newIngredient = await Ingredient.create(
+    const ingredient = await Ingredient.create(
       {
-        IngredientName,
-        SoLuong,
-        PhanLoai: PhanLoai || "Khác",
+        IngredientName: IngredientName.trim(),
+        SoLuong: parseInt(SoLuong),
+        PhanLoai,
         ImageURL: imageUrl,
       },
-      { transaction }
+      { transaction: t }
     );
 
-    if (Foods) {
-      const foodsArr = JSON.parse(Foods);
-      if (Array.isArray(foodsArr) && foodsArr.length) {
-        await Food.update(
-          { IngredientId: newIngredient.IngredientId },
-          { where: { FoodId: foodsArr }, transaction }
-        );
+    // Parse Foods (array FoodId) and create FoodIngredient
+    let foodsArr = [];
+    if (req.body.Foods) {
+      try {
+        foodsArr =
+          typeof req.body.Foods === "string"
+            ? JSON.parse(req.body.Foods)
+            : req.body.Foods;
+        if (!Array.isArray(foodsArr)) foodsArr = [];
+      } catch {
+        foodsArr = [];
       }
     }
 
-    await transaction.commit();
+    if (foodsArr.length)
+      await FoodIngredient.bulkCreate(
+        foodsArr.map((foodId) => ({
+          IngredientId: ingredient.IngredientId,
+          FoodId: foodId,
+          Quantity: 1, // Default, có thể parse từ body nếu cần
+        })),
+        { transaction: t }
+      );
+
+    await t.commit();
 
     res.status(201).json({
       success: true,
       message: "Thêm nguyên liệu thành công!",
       data: {
-        ...newIngredient.get({ plain: true }),
+        ...ingredient.get({ plain: true }),
         ImageURL: formatImageURL(imageUrl),
       },
     });
   } catch (err) {
-    await transaction.rollback();
-    handleControllerError(err, res, req.file);
+    await t.rollback();
+    handleControllerError(err, res);
   }
 };
 
 // ==================== CẬP NHẬT NGUYÊN LIỆU ====================
 exports.editIngredient = async (req, res) => {
-  const transaction = await sequelize.transaction();
+  const t = await sequelize.transaction();
   try {
     const ingredient = await Ingredient.findByPk(req.params.id, {
-      transaction,
+      transaction: t,
     });
     if (!ingredient)
       return res
         .status(404)
         .json({ success: false, message: "Không tìm thấy nguyên liệu." });
 
-    const { IngredientName, SoLuong, PhanLoai, Foods } = req.body;
-    if (!IngredientName || !SoLuong || SoLuong <= 0)
+    const { IngredientName, SoLuong, PhanLoai = "Khác", Foods } = req.body;
+
+    // Validate
+    if (!IngredientName?.trim() || !SoLuong || SoLuong <= 0)
       return res
         .status(400)
-        .json({ success: false, message: "Tên hoặc số lượng không hợp lệ." });
+        .json({
+          success: false,
+          message: "Tên nguyên liệu và số lượng phải hợp lệ (>0).",
+        });
 
-    const existName = await Ingredient.findOne({
-      where: { IngredientName, IngredientId: { [Op.ne]: req.params.id } },
-      transaction,
+    const exist = await Ingredient.findOne({
+      where: {
+        IngredientName: IngredientName.trim(),
+        IngredientId: { [Op.ne]: req.params.id },
+      },
+      transaction: t,
     });
-    if (existName)
+    if (exist)
       return res
         .status(400)
         .json({ success: false, message: "Tên nguyên liệu đã tồn tại." });
 
     const oldImage = ingredient.ImageURL;
     const updateData = {
-      IngredientName,
-      SoLuong,
-      PhanLoai: PhanLoai || "Khác",
+      IngredientName: IngredientName.trim(),
+      SoLuong: parseInt(SoLuong),
+      PhanLoai,
     };
 
     // Upload new image to Supabase if provided
@@ -223,45 +304,67 @@ exports.editIngredient = async (req, res) => {
       const uploadResult = await uploadToSupabase(
         req.file.buffer,
         req.file.originalname,
-        "nguyenlieu" // folder name for ingredients
+        "nguyenlieu"
       );
+
       if (uploadResult.success) {
-        updateData.ImageURL = uploadResult.url; // Full Supabase URL
+        updateData.ImageURL = uploadResult.url;
+        console.log(
+          "✅ Ingredient image updated on Supabase:",
+          uploadResult.url
+        );
+
+        // Delete old image from Supabase if not default
+        if (
+          oldImage &&
+          isSupabaseUrl(oldImage) &&
+          !oldImage.includes("no-image.png")
+        ) {
+          await deleteFromSupabase(oldImage);
+          console.log("🗑️ Old ingredient image deleted from Supabase");
+        }
       } else {
-        await transaction.rollback();
+        console.error(
+          "❌ Failed to upload ingredient image:",
+          uploadResult.error
+        );
         return res.status(500).json({
           success: false,
-          message: `Lỗi upload ảnh: ${uploadResult.error}`,
+          message: "Lỗi upload ảnh: " + uploadResult.error,
         });
       }
     }
 
-    await ingredient.update(updateData, { transaction });
+    await ingredient.update(updateData, { transaction: t });
 
+    // Xóa FoodIngredient cũ
+    await FoodIngredient.destroy({
+      where: { IngredientId: ingredient.IngredientId },
+      transaction: t,
+    });
+
+    // Parse Foods and bulkCreate new
+    let foodsArr = [];
     if (Foods) {
-      const foodsArr = JSON.parse(Foods);
-      if (Array.isArray(foodsArr)) {
-        // Cập nhật lại IngredientId của các món ăn
-        await Food.update(
-          { IngredientId: ingredient.IngredientId },
-          { where: { FoodId: foodsArr }, transaction }
-        );
+      try {
+        foodsArr = typeof Foods === "string" ? JSON.parse(Foods) : Foods;
+        if (!Array.isArray(foodsArr)) foodsArr = [];
+      } catch {
+        foodsArr = [];
       }
     }
 
-    await transaction.commit();
+    if (foodsArr.length)
+      await FoodIngredient.bulkCreate(
+        foodsArr.map((foodId) => ({
+          IngredientId: ingredient.IngredientId,
+          FoodId: foodId,
+          Quantity: 1,
+        })),
+        { transaction: t }
+      );
 
-    // Delete old image from Supabase if new image was uploaded and old image exists
-    if (req.file && oldImage && oldImage !== "/images/no-image.png") {
-      if (isSupabaseUrl(oldImage)) {
-        // Delete from Supabase Storage
-        await deleteFromSupabase(oldImage);
-      } else {
-        // Delete from local filesystem (for backward compatibility)
-        const oldPath = path.join(__dirname, "../../public", oldImage);
-        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-      }
-    }
+    await t.commit();
 
     res.json({
       success: true,
@@ -272,44 +375,56 @@ exports.editIngredient = async (req, res) => {
       },
     });
   } catch (err) {
-    await transaction.rollback();
-    handleControllerError(err, res, req.file);
+    await t.rollback();
+    handleControllerError(err, res);
   }
 };
 
 // ==================== XÓA NGUYÊN LIỆU ====================
 exports.deleteIngredient = async (req, res) => {
-  const transaction = await sequelize.transaction();
+  const t = await sequelize.transaction();
   try {
-    const { id } = req.body;
-    const ingredient = await Ingredient.findByPk(id, {
-      include: [{ model: Food, as: "Foods" }],
-      transaction,
-    });
-
+    const { id } = req.body; // Giữ nguyên như food (body.id), nhưng nên unify sang params.id sau
+    const ingredient = await Ingredient.findByPk(id, { transaction: t });
     if (!ingredient)
       return res
         .status(404)
         .json({ success: false, message: "Không tìm thấy nguyên liệu." });
 
-    if (ingredient.Foods?.length > 0)
+    // Check ràng buộc: Đếm số Food dùng nguyên liệu này qua FoodIngredient
+    const foodCount = await FoodIngredient.count({
+      where: { IngredientId: id },
+      transaction: t,
+    });
+    if (foodCount > 0)
       return res.status(400).json({
         success: false,
-        message: `Không thể xóa vì nguyên liệu đang được dùng trong ${ingredient.Foods.length} món ăn.`,
+        message: `Không thể xóa vì nguyên liệu đang được dùng trong ${foodCount} món ăn.`,
       });
 
     const imageToDelete = ingredient.ImageURL;
-    await ingredient.destroy({ transaction });
-    await transaction.commit();
+    await ingredient.destroy({ transaction: t });
+    await t.commit();
 
-    if (imageToDelete && imageToDelete !== "/images/no-image.png") {
-      const imagePath = path.join(__dirname, "../../public", imageToDelete);
-      if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+    // Xóa ảnh: Unify với Supabase hoặc local
+    if (imageToDelete && imageToDelete !== `${HOST}/images/no-image.png`) {
+      if (isSupabaseUrl(imageToDelete)) {
+        await deleteFromSupabase(imageToDelete);
+        console.log("🗑️ Ingredient image deleted from Supabase");
+      } else {
+        // Local fallback
+        const imagePath = path.join(
+          __dirname,
+          "../../public",
+          imageToDelete.replace(HOST, "")
+        );
+        if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+      }
     }
 
     res.json({ success: true, message: "Xóa nguyên liệu thành công!" });
   } catch (err) {
-    await transaction.rollback();
+    await t.rollback();
     handleControllerError(err, res);
   }
 };

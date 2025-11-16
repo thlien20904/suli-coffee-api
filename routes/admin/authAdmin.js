@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { poolPromise, sql } = require("../../db");
+const { poolPromise, sql } = require("../../config/db");
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret";
 

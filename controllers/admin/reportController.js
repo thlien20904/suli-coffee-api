@@ -5,6 +5,7 @@ const models = initModels(sequelize);
 const { Orders, OrderDetails, Food } = models;
 const { Op } = require("sequelize");
 const moment = require("moment"); // npm install moment
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:5000";
 
 /* =====================================================
    1️⃣ DOANH THU (theo ngày / tuần / tháng)
@@ -160,43 +161,6 @@ exports.getRevenue = async (req, res) => {
     res.json({ success: true, type, year, month, revenueData });
   } catch (err) {
     console.error("❌ Lỗi report revenue:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Lỗi server", details: err.message });
-  }
-};
-
-/* =====================================================
-   2️⃣ TOP SẢN PHẨM BÁN CHẠY (Top 8)
-   GET /api/admin/report/banchay
-===================================================== */
-exports.getTopSellingFoods = async (req, res) => {
-  try {
-    const foods = await Food.findAll({
-      include: [{ model: OrderDetails, as: "OrderDetails" }],
-    });
-
-    const ranked = foods
-      .map((f) => {
-        const totalSold = f.OrderDetails
-          ? f.OrderDetails.reduce((sum, od) => sum + (od.Quantity || 0), 0)
-          : 0;
-        return {
-          FoodId: f.FoodId,
-          FoodName: f.FoodName,
-          ImageURL: f.ImageURL
-            ? `http://localhost:5000${f.ImageURL}`
-            : `http://localhost:5000/images/no-image.png`,
-          Price: f.Price,
-          TotalSold: totalSold,
-        };
-      })
-      .sort((a, b) => b.TotalSold - a.TotalSold)
-      .slice(0, 8);
-
-    res.json({ success: true, data: ranked });
-  } catch (err) {
-    console.error("❌ Lỗi report banchay:", err);
     res
       .status(500)
       .json({ success: false, message: "Lỗi server", details: err.message });

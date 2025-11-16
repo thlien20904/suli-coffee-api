@@ -6,7 +6,7 @@ const paymentController = require("../../controllers/admin/paymentController");
 router.get("/", paymentController.getAllPaymentMethods);
 
 // Lấy 1 payment method theo ID
-router.get("/edit/:id", paymentController.getPaymentById);
+router.get("/:id", paymentController.getPaymentById); // ✅ FIX: Đổi từ "/edit/:id" → "/:id" (khớp frontend GET `/api/admin/payment/${id}`)
 
 // Thêm mới
 router.post("/add", paymentController.addPaymentMethod);
