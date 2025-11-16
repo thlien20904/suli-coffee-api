@@ -28,6 +28,25 @@ const { Users } = initModels(sequelize);
 // Load environment variables
 dotenv.config();
 
+// 🛡️ Global error handlers for database issues
+process.on('uncaughtException', (error) => {
+  console.error('🚨 Uncaught Exception:', error.message);
+  if (error.message.includes('db_termination') || error.message.includes('Connection terminated')) {
+    console.log('🔄 Database connection issue detected, attempting to reconnect...');
+    // Don't exit process, let the connection pool handle reconnection
+  } else {
+    console.error('💥 Critical error, shutting down gracefully...');
+    process.exit(1);
+  }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
+  if (reason?.message?.includes('db_termination')) {
+    console.log('🔄 Database rejection detected, will retry...');
+  }
+});
+
 // Print environment info for debugging
 console.log("ENV:", {
   DB_NAME: process.env.DB_NAME,
