@@ -255,7 +255,14 @@ app.use("/api/admin/report", reportRouter);
 app.use("/api/admin/voucher", voucherRouter);
 
 // Mount webhooks
+
 app.use("/api/webhooks", webhooksRouter);
+
+// Mount CSP demo middleware
+const createCSPMiddleware = require("./cspMiddleware");
+app.use(
+  createCSPMiddleware(null, { publicPath: path.join(__dirname, "public"), io })
+);
 
 /* ---------------- API ENDPOINTS ---------------- */
 // Current user endpoint
