@@ -13,22 +13,61 @@ if (!emailUser || !emailPass) {
   );
 }
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
+// ✅ Render.com thường block port 587/465, cần dùng config đặc biệt hoặc SMTP relay
+const isProduction = process.env.NODE_ENV === "production";
+const transportConfig = {
+  host: "smtp.gmail.com",
+  port: 587, // hoặc 465 cho SSL
+  secure: false, // true cho port 465, false cho 587
   auth: {
     user: emailUser,
     pass: emailPass,
   },
-  connectionTimeout: 10000, // 10s timeout
-  greetingTimeout: 5000, // 5s timeout
-  socketTimeout: 10000, // 10s timeout
-});
+  connectionTimeout: 30000, // Tăng timeout lên 30s cho production
+  greetingTimeout: 15000,
+  socketTimeout: 30000,
+  // ✅ Thêm options cho Render.com
+  tls: {
+    rejectUnauthorized: false, // Cho phép self-signed certificates
+  },
+  // ✅ Retry nếu timeout
+  pool: true,
+  maxConnections: 5,
+  maxMessages: 10,
+};
+
+// ⚠️ Nếu vẫn bị block, cần dùng SMTP relay như SendGrid, Mailgun, hoặc AWS SES
+console.log(
+  `📧 Email service mode: ${isProduction ? "PRODUCTION" : "DEVELOPMENT"}`
+);
+
+const transporter = nodemailer.createTransport(transportConfig);
 
 console.log(
   `📧 Email service initialized with: ${
     emailUser ? emailUser.substring(0, 5) + "***" : "NOT_SET"
   }`
 );
+
+// ✅ Verify SMTP connection (non-blocking)
+if (emailUser && emailPass) {
+  transporter.verify(function (error, success) {
+    if (error) {
+      console.error("❌ SMTP Connection Error:", error.code, error.message);
+      if (error.code === "ETIMEDOUT") {
+        console.error(
+          "   🚨 SMTP port is blocked on this server (common on Render.com free tier)"
+        );
+        console.error("   💡 Solutions:");
+        console.error("      1. Use SMTP relay: SendGrid, Mailgun, AWS SES");
+        console.error("      2. Upgrade Render plan to unblock SMTP ports");
+        console.error("      3. Use different email provider with webhook API");
+      }
+    } else {
+      console.log("✅ SMTP Server is ready to send emails");
+    }
+  });
+}
 
 // Gửi email xác nhận đăng ký
 async function sendSignupConfirmation(userEmail, userName) {

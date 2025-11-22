@@ -16,14 +16,20 @@ if (!emailUser || !emailPass) {
 }
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
   auth: {
     user: emailUser,
     pass: emailPass,
   },
-  connectionTimeout: 10000,
-  greetingTimeout: 5000,
-  socketTimeout: 10000,
+  connectionTimeout: 30000, // Tăng timeout
+  greetingTimeout: 15000,
+  socketTimeout: 30000,
+  tls: {
+    rejectUnauthorized: false,
+  },
+  pool: true,
 });
 
 // Gửi mã OTP qua email

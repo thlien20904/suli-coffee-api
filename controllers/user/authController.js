@@ -37,14 +37,20 @@ function createTransport() {
     console.log("✅ Using Gmail SMTP:", gmailUser);
     try {
       const transport = nodemailer.createTransport({
-        service: "gmail",
+        host: "smtp.gmail.com",
+        port: 587,
+        secure: false,
         auth: {
           user: gmailUser,
           pass: gmailPass,
         },
-        connectionTimeout: 10000, // 10s timeout
-        greetingTimeout: 5000, // 5s timeout
-        socketTimeout: 10000, // 10s timeout
+        connectionTimeout: 30000, // Tăng timeout lên 30s
+        greetingTimeout: 15000,
+        socketTimeout: 30000,
+        tls: {
+          rejectUnauthorized: false,
+        },
+        pool: true,
       });
       console.log("✅ Gmail transport created successfully");
       return transport;
