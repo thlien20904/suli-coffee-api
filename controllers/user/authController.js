@@ -25,11 +25,11 @@ const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 // Create a nodemailer transport using environment variables
 function createTransport() {
   console.log("🔧 createTransport STARTED");
-  // Check for Gmail configuration first (most common for dev)
-  const gmailUser = process.env.GMAIL_USER;
-  const gmailPass = process.env.GMAIL_PASS;
+  // ✅ Check for Gmail configuration - support both GMAIL_USER and EMAIL_USER
+  const gmailUser = process.env.GMAIL_USER || process.env.EMAIL_USER;
+  const gmailPass = process.env.GMAIL_PASS || process.env.EMAIL_PASS;
   console.log("🔧 Gmail config check:", {
-    user: gmailUser ? "SET" : "NOT_SET",
+    user: gmailUser ? "SET (" + gmailUser.substring(0, 5) + "***)" : "NOT_SET",
     pass: gmailPass ? "SET" : "NOT_SET",
   });
 
@@ -98,7 +98,10 @@ async function sendVerificationEmail(toEmail, token, username) {
   )}`;
 
   const fromEmail =
-    process.env.GMAIL_USER || process.env.SMTP_FROM || "noreply@sulicoffee.vn";
+    process.env.GMAIL_USER ||
+    process.env.EMAIL_USER ||
+    process.env.SMTP_FROM ||
+    "noreply@sulicoffee.vn";
 
   const mailOptions = {
     from: `"SuLi Coffee" <${fromEmail}>`,

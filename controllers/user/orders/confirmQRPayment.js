@@ -1,13 +1,14 @@
 const { sequelize, models } = require("./config");
 const jwt = require("jsonwebtoken");
 const { createGHNOrder } = require("../../../services/ghnService");
+const { sendOrderConfirmation } = require("../../../services/emailService");
 const {
   emitOrderUpdate,
   emitUserNotification,
   emitAdminNotification,
 } = require("../../../utils/realtimeHelper");
 
-const { Orders } = models;
+const { Orders, Users, OrderDetails, Food, DeliveryAddresses } = models;
 
 // ===================== AUTH =====================
 const authenticateToken = (req, res, next) => {
@@ -97,19 +98,72 @@ const confirmQRPayment = async (req, res) => {
       Note: newNote,
     });
 
+    // ✅ Gửi email xác nhận QR payment (async, non-blocking)
+    setImmediate(async () => {
+      try {
+        const user = await Users.findByPk(order.UserId);
+        if (user && user.Email) {
+          const orderDetails = await OrderDetails.findAll({
+            where: { OrderId: orderId },
+            include: [{ model: Food, as: "Food" }],
+          });
+
+          const orderItems = orderDetails.map((item) => ({
+            name: item.Food?.FoodName || "Sản phẩm",
+            quantity: item.Quantity,
+            price: parseFloat(item.Price || 0),
+          }));
+
+          const deliveryAddr = await DeliveryAddresses.findOne({
+            where: {
+              UserId: order.UserId,
+              Province: order.Province,
+              District: order.District,
+              Ward: order.Ward,
+            },
+          });
+
+          await sendOrderConfirmation(
+            user.Email,
+            user.FullName || user.Username,
+            {
+              orderId: order.OrderId,
+              orderDate: order.OrderDate,
+              items: orderItems,
+              totalAmount: parseFloat(order.TotalAmount),
+              shippingAddress:
+                order.DeliveryAddress ||
+                `${order.Ward}, ${order.District}, ${order.Province}`,
+              phone: deliveryAddr?.Phone || order.Phone || "Chưa cập nhật",
+              paymentMethod: "QR Code",
+            }
+          );
+          console.log(`✅ QR payment email sent to: ${user.Email}`);
+        }
+      } catch (emailErr) {
+        console.error(
+          `❌ QR payment email error (non-critical):`,
+          emailErr.message
+        );
+      }
+    });
+
     console.log(`🚀 ===== CREATING GHN ORDER FOR QR PAYMENT #${orderId} =====`);
 
-    // Create GHN order for QR payment (COD = 0, same as VNPay)
-    try {
-      await createGHNOrder(orderId, 0); // COD = 0 for QR payment
-      console.log(`✅ QR Payment #${orderId} - GHN Order created successfully`);
-    } catch (ghnError) {
-      console.error(
-        `❌ GHN Order creation failed for QR #${orderId}:`,
-        ghnError.message
-      );
-      // Don't fail the confirmation if GHN fails - just log it
-    }
+    // Create GHN order for QR payment (COD = 0, same as VNPay) - ASYNC
+    setImmediate(async () => {
+      try {
+        await createGHNOrder(orderId, 0); // COD = 0 for QR payment
+        console.log(
+          `✅ QR Payment #${orderId} - GHN Order created successfully`
+        );
+      } catch (ghnError) {
+        console.error(
+          `❌ GHN Order creation failed for QR #${orderId}:`,
+          ghnError.message
+        );
+      }
+    });
 
     // Emit notification (non-blocking)
     try {

@@ -7,13 +7,23 @@ const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const bcrypt = require("bcryptjs");
 
-// Cấu hình transporter cho nodemailer
+// ✅ Cấu hình transporter cho nodemailer - hỗ trợ cả GMAIL và EMAIL variables
+const emailUser = process.env.GMAIL_USER || process.env.EMAIL_USER;
+const emailPass = process.env.GMAIL_PASS || process.env.EMAIL_PASS;
+
+if (!emailUser || !emailPass) {
+  console.error("❌ Password reset: No email credentials found!");
+}
+
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS,
+    user: emailUser,
+    pass: emailPass,
   },
+  connectionTimeout: 10000,
+  greetingTimeout: 5000,
+  socketTimeout: 10000,
 });
 
 // Gửi mã OTP qua email
@@ -42,7 +52,7 @@ exports.forgotPassword = async (req, res) => {
     );
 
     await transporter.sendMail({
-      from: `"SuLi Coffee" <${process.env.GMAIL_USER}>`,
+      from: `"SuLi Coffee" <${emailUser}>`,
       to: email,
       subject: "Mã đặt lại mật khẩu",
       text: `Mã OTP của bạn là: ${otp}. Có hiệu lực trong 10 phút.`,
@@ -51,13 +61,11 @@ exports.forgotPassword = async (req, res) => {
     res.json({ success: true, message: "OTP đã gửi vào email" });
   } catch (err) {
     console.error("FORGOT PASSWORD ERROR:", err);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Lỗi khi gửi OTP",
-        detail: err.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Lỗi khi gửi OTP",
+      detail: err.message,
+    });
   }
 };
 

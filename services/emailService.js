@@ -1,20 +1,41 @@
-const nodemailer = require('nodemailer');
+const nodemailer = require("nodemailer");
 
-// Tạo transporter với Gmail
+// ✅ Tạo transporter với Gmail - hỗ trợ cả GMAIL_USER và EMAIL_USER cho production
+const emailUser = process.env.GMAIL_USER || process.env.EMAIL_USER;
+const emailPass = process.env.GMAIL_PASS || process.env.EMAIL_PASS;
+
+if (!emailUser || !emailPass) {
+  console.error(
+    "❌ CRITICAL: No email credentials found in environment variables!"
+  );
+  console.error(
+    "   Please set GMAIL_USER/GMAIL_PASS or EMAIL_USER/EMAIL_PASS in .env"
+  );
+}
+
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  service: "gmail",
   auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS,
+    user: emailUser,
+    pass: emailPass,
   },
+  connectionTimeout: 10000, // 10s timeout
+  greetingTimeout: 5000, // 5s timeout
+  socketTimeout: 10000, // 10s timeout
 });
+
+console.log(
+  `📧 Email service initialized with: ${
+    emailUser ? emailUser.substring(0, 5) + "***" : "NOT_SET"
+  }`
+);
 
 // Gửi email xác nhận đăng ký
 async function sendSignupConfirmation(userEmail, userName) {
   const mailOptions = {
-    from: `"SuLi Coffee" <${process.env.GMAIL_USER}>`,
+    from: `"SuLi Coffee" <${emailUser}>`,
     to: userEmail,
-    subject: '🎉 Chào mừng bạn đến với SuLi Coffee!',
+    subject: "🎉 Chào mừng bạn đến với SuLi Coffee!",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
         <div style="background: linear-gradient(90deg, #dae4daff, #81c784); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
@@ -72,7 +93,7 @@ async function sendSignupConfirmation(userEmail, userName) {
     console.log(`✅ Email đăng ký đã gửi đến: ${userEmail}`);
     return { success: true };
   } catch (error) {
-    console.error('❌ Lỗi gửi email đăng ký:', error);
+    console.error("❌ Lỗi gửi email đăng ký:", error);
     return { success: false, error: error.message };
   }
 }
@@ -94,16 +115,22 @@ async function sendOrderConfirmation(userEmail, userName, orderDetails) {
     .map(
       (item) => `
     <tr>
-      <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.name}</td>
-      <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${item.quantity}</td>
-      <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${item.price.toLocaleString('vi-VN')}₫</td>
+      <td style="padding: 10px; border-bottom: 1px solid #eee;">${
+        item.name
+      }</td>
+      <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${
+        item.quantity
+      }</td>
+      <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${item.price.toLocaleString(
+        "vi-VN"
+      )}₫</td>
     </tr>
   `
     )
-    .join('');
+    .join("");
 
   const mailOptions = {
-    from: `"SuLi Coffee" <${process.env.GMAIL_USER}>`,
+    from: `"SuLi Coffee" <${emailUser}>`,
     to: userEmail,
     subject: `✅ Đơn hàng #${orderId} đã được xác nhận - SuLi Coffee`,
     html: `
@@ -124,7 +151,9 @@ async function sendOrderConfirmation(userEmail, userName, orderDetails) {
             <h3 style="color: #81c784; margin-top: 0;">📦 Thông tin đơn hàng</h3>
             <p style="margin: 5px 0; color: #333;">
               <strong>Mã đơn hàng:</strong> #${orderId}<br>
-              <strong>Ngày đặt:</strong> ${new Date(orderDate).toLocaleString('vi-VN')}<br>
+              <strong>Ngày đặt:</strong> ${new Date(orderDate).toLocaleString(
+                "vi-VN"
+              )}<br>
               <strong>Phương thức thanh toán:</strong> ${paymentMethod}
             </p>
           </div>
@@ -155,7 +184,9 @@ async function sendOrderConfirmation(userEmail, userName, orderDetails) {
             
             <div style="margin-top: 20px; padding-top: 15px; border-top: 2px solid #81c784;">
               <p style="font-size: 18px; color: #333; text-align: right; margin: 5px 0;">
-                <strong>Tổng cộng: ${totalAmount.toLocaleString('vi-VN')}₫</strong>
+                <strong>Tổng cộng: ${totalAmount.toLocaleString(
+                  "vi-VN"
+                )}₫</strong>
               </p>
             </div>
           </div>
@@ -180,7 +211,7 @@ async function sendOrderConfirmation(userEmail, userName, orderDetails) {
           
           <p style="font-size: 14px; color: #888; text-align: center; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
             Nếu có thắc mắc về đơn hàng, hãy liên hệ với chúng tôi:<br>
-            <strong>Hotline:</strong> 0366413924 | <strong>Email:</strong> ${process.env.GMAIL_USER}
+            <strong>Hotline:</strong> 0366413924 | <strong>Email:</strong> ${emailUser}
           </p>
           
           <p style="font-size: 13px; color: #aaa; text-align: center; margin-top: 10px;">
@@ -196,7 +227,7 @@ async function sendOrderConfirmation(userEmail, userName, orderDetails) {
     console.log(`✅ Email xác nhận đơn hàng đã gửi đến: ${userEmail}`);
     return { success: true };
   } catch (error) {
-    console.error('❌ Lỗi gửi email đơn hàng:', error);
+    console.error("❌ Lỗi gửi email đơn hàng:", error);
     return { success: false, error: error.message };
   }
 }
