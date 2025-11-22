@@ -1,5 +1,8 @@
 // backend/controllers/user/orders/pending.js
-const { sequelize, models, Op } = require("./config");
+const sequelize = require("../../../config/sequelize");
+const initModels = require("../../../models/init-models");
+const models = initModels(sequelize);
+const { Op } = require("sequelize");
 const {
   Orders,
   OrderDetails,
@@ -161,14 +164,31 @@ exports.getPendingOrders = async (req, res) => {
 exports.savePending = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
+    console.log("📝 Save pending request body:", req.body);
+    console.log("👤 User from token:", req.user);
+    
     const { orderItems, newAddress } = req.body;
-    if (!orderItems || !orderItems.length)
+    if (!orderItems || !orderItems.length) {
+      await transaction.rollback();
       return res.json({ success: false, message: "Không có sản phẩm để lưu" });
+    }
+
+    if (!req.user || !req.user.id) {
+      await transaction.rollback();
+      return res.status(401).json({ success: false, message: "Chưa đăng nhập" });
+    }
 
     // Lấy hoặc tạo Status "Chưa hoàn tất"
     const [status] = await OrderStatus.findOrCreate({
       where: { StatusName: "Chưa hoàn tất" },
       defaults: { StatusName: "Chưa hoàn tất" },
+      transaction,
+    });
+
+    // Lấy PaymentStatus "Chờ thanh toán"
+    const [paymentStatus] = await PaymentStatus.findOrCreate({
+      where: { PaymentStatusName: "Chờ thanh toán" },
+      defaults: { PaymentStatusName: "Chờ thanh toán" },
       transaction,
     });
 
@@ -180,13 +200,15 @@ exports.savePending = async (req, res) => {
         DeliveryAddress: newAddress || null,
         TotalAmount: orderItems.reduce((s, it) => s + (it.TotalPrice || 0), 0),
         OrderDate: {
-          [Op.gt]: sequelize.literal("DATEADD(minute, -30, GETDATE())"),
+          [Op.gt]: sequelize.literal("NOW() - INTERVAL '30 minutes'"),
         },
       },
       transaction,
     });
+    
     if (recent) {
       await transaction.commit();
+      console.log("✅ Found recent pending order:", recent.OrderId);
       return res.json({
         success: true,
         message: "Đã có đơn tạm tương tự gần đây, sử dụng đơn hiện có",
@@ -194,20 +216,42 @@ exports.savePending = async (req, res) => {
       });
     }
 
+    // Tìm hoặc tạo PaymentMethod mặc định cho đơn tạm
+    const [defaultPaymentMethod] = await PhuongThucThanhToan.findOrCreate({
+      where: { TenPhuongThuc: "Chưa chọn" },
+      defaults: { TenPhuongThuc: "Chưa chọn" },
+      transaction,
+    });
+    console.log("✅ Default PaymentMethod:", defaultPaymentMethod.Id);
+
     // Tạo đơn tạm mới
     const order = await Orders.create(
       {
         UserId: req.user.id,
         OrderDate: new Date(),
         TotalAmount: orderItems.reduce((s, it) => s + (it.TotalPrice || 0), 0),
-        PaymentMethodId: null, // Chưa chọn
-        StatusId: status.StatusId, // Chưa hoàn tất
+        PaymentMethodId: defaultPaymentMethod.Id, // ✅ Phương thức thanh toán mặc định
+        PaymentStatusId: paymentStatus.PaymentStatusId,
+        StatusId: status.StatusId,
         DeliveryAddress: newAddress || null,
+        CuaHangId: null,
       },
       { transaction }
     );
 
+    console.log("✅ Created pending order:", order.OrderId);
+
+    // Validate và tạo OrderDetails
     for (const it of orderItems) {
+      console.log("📦 Creating order detail for Food:", it.FoodId);
+      
+      // Validate FoodId exists
+      const foodExists = await Food.findByPk(it.FoodId, { transaction });
+      if (!foodExists) {
+        console.warn("⚠️ Food not found, skipping:", it.FoodId);
+        continue;
+      }
+      
       const od = await OrderDetails.create(
         {
           OrderId: order.OrderId,
@@ -219,23 +263,31 @@ exports.savePending = async (req, res) => {
         { transaction }
       );
 
-      for (const t of it.ToppingIDs || []) {
-        await OrderDetails_Topping.create(
-          { OrderDetailId: od.OrderDetailId, ToppingId: t },
-          { transaction }
-        );
+      if (it.ToppingIDs && it.ToppingIDs.length > 0) {
+        console.log("🍰 Adding toppings:", it.ToppingIDs);
+        for (const t of it.ToppingIDs || []) {
+          await OrderDetails_Topping.create(
+            { OrderDetailId: od.OrderDetailId, ToppingId: t },
+            { transaction }
+          );
+        }
       }
     }
 
     await transaction.commit();
+    console.log("✅ Transaction committed successfully");
+    
     res.json({
       success: true,
       message: "Lưu đơn hàng chưa hoàn tất thành công",
       orderId: order.OrderId,
     });
   } catch (err) {
-    await transaction.rollback();
-    console.error("SAVE PENDING ERROR:", err);
+    if (transaction && !transaction.finished) {
+      await transaction.rollback();
+    }
+    console.error("❌ SAVE PENDING ERROR:", err.message);
+    console.error("❌ Error stack:", err.stack);
     res.status(500).json({
       success: false,
       message: "Lỗi khi lưu đơn hàng",
@@ -372,7 +424,7 @@ exports.autoCancelPendingOrders = async () => {
       await transaction.rollback();
       return;
     }
-    const timeLimit = -15;
+    const timeLimit = -5; // ✅ Đổi từ 15 phút thành 5 phút
     const [affectedRows] = await Orders.update(
       { StatusId: cancelledStatus.StatusId },
       {
@@ -394,5 +446,69 @@ exports.autoCancelPendingOrders = async () => {
   } catch (err) {
     await transaction.rollback();
     console.error("Auto-cancel pending orders failed:", err);
+  }
+};
+
+// ==============================
+// API: POST /api/orders/pending/:orderId/cancel
+// Hủy đơn hàng tạm bởi người dùng
+// ==============================
+exports.cancelPendingOrder = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { orderId } = req.params;
+    
+    // Tìm đơn hàng
+    const order = await Orders.findOne({
+      where: { 
+        OrderId: parseInt(orderId),
+        UserId: req.user.id // Chỉ cho phép hủy đơn của chính mình
+      },
+      transaction
+    });
+
+    if (!order) {
+      await transaction.rollback();
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy đơn hàng"
+      });
+    }
+
+    // Kiểm tra trạng thái đơn hàng
+    const orderStatus = await OrderStatus.findByPk(order.StatusId, { transaction });
+    
+    // Chỉ cho phép hủy đơn "Chưa hoàn tất"
+    if (orderStatus.StatusName !== "Chưa hoàn tất") {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "Không thể hủy đơn hàng này. Chỉ có thể hủy đơn chưa hoàn tất."
+      });
+    }
+
+    // Cập nhật trạng thái sang "Đã hủy"
+    const [cancelledStatus] = await OrderStatus.findOrCreate({
+      where: { StatusName: "Đã hủy" },
+      defaults: { StatusName: "Đã hủy" },
+      transaction,
+    });
+
+    await order.update({ StatusId: cancelledStatus.StatusId }, { transaction });
+    
+    await transaction.commit();
+    
+    res.json({
+      success: true,
+      message: "Đã hủy đơn hàng thành công"
+    });
+  } catch (err) {
+    await transaction.rollback();
+    console.error("CANCEL PENDING ORDER ERROR:", err);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi khi hủy đơn hàng",
+      detail: err.message,
+    });
   }
 };

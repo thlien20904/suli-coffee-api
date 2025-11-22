@@ -237,11 +237,12 @@ function createCSPMiddleware(frontendBuildPath, options = {}) {
       try {
         const nonce = generateNonce();
         const csp = [
-          "default-src 'self'",
+          "default-src 'self' blob:",
           `script-src 'self' 'nonce-${nonce}' 'unsafe-eval' 'sha256-7KeYHLqXdC8kKKqmVYS0d4v1Y7eG5vC5qv+T0rJ1w1M=' 'sha256-BKU8tKGd0KZuZtZW7c8Qpe3gvmFJ9cJdVe3v3tZyGbI=' 'sha256-R8TqFr7hL0qK3Y9F8K5Nc9L3hV7F8qRz0Td1cM2QzN4=' 'sha256-MkOXeVUvzUUKopAOP0RVNWc3wADitnaZbMMh2TTTdbE=' https://accounts.google.com https://*.googleapis.com https://cdnjs.cloudflare.com`,
           "style-src 'self' https: 'unsafe-inline'",
           "img-src * data: blob:",
-          `connect-src 'self' ws://localhost:5000 wss://suli-coffee.onrender.com https://suli-coffee.onrender.com https://accounts.google.com https://*.googleapis.com`,
+          "media-src 'self' https://vhkvfmbmmsolqiwrjlxp.supabase.co https://*.supabase.co blob: data:",
+          `connect-src 'self' ws://localhost:5000 ws://localhost:3000 wss://suli-coffee.onrender.com https://suli-coffee.onrender.com https://accounts.google.com https://*.googleapis.com https://vhkvfmbmmsolqiwrjlxp.supabase.co`,
           "font-src 'self' https: data:",
           "object-src 'none'",
           "frame-ancestors 'self'",

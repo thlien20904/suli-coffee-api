@@ -9,6 +9,7 @@ const {
   emitAdminNotification,
 } = require("../../../utils/realtimeHelper");
 const { createGHNOrder } = require("../../../services/ghnService");
+const { sendOrderConfirmation } = require("../../../services/emailService");
 
 const {
   GioHang,
@@ -310,19 +311,24 @@ const placeOrder = async (req, res) => {
         CuaHangId: cuaHangId,
         OrderDate: new Date(),
         TotalAmount: totalAmount,
+        ShippingFee: finalShippingFee, // ✅ THÊM: Lưu phí ship
+        DiscountAmount: discountAmount, // ✅ THÊM: Lưu giảm giá
         PaymentMethodId: paymentMethodId,
         StatusId: orderStatus.StatusId,
-        PaymentStatusId: pendingPayment.PaymentStatusId, // Mặc định "Chờ thanh toán"
+        PaymentStatusId: pendingPayment.PaymentStatusId,
         DeliveryAddress: deliveryAddress.Address,
         Province: deliveryAddress.Province,
         District: deliveryAddress.District,
         Ward: deliveryAddress.Ward,
         Phone: deliveryAddress.Phone,
-        VoucherId: appliedVoucherId,
+        VoucherId: appliedVoucherId, // Vẫn giữ để join nếu cần
       },
       { transaction }
     );
-    console.log("Order created:", order.OrderId);
+    console.log("Order created with ShippingFee & Discount:", {
+      ShippingFee: finalShippingFee,
+      DiscountAmount: discountAmount,
+    });
 
     for (const item of itemsToOrder) {
       let unitPrice = (item.TotalPrice || 0) / (item.Quantity || 1);
@@ -597,7 +603,6 @@ const placeOrder = async (req, res) => {
         Url: paymentUrl,
       });
     }
-
     // ✅ TẠO ĐƠN GHN CHỈ CHO COD (Skip VNPAY và QR CODE)
     let ghnOrderCode = null;
 
@@ -666,12 +671,19 @@ const placeOrder = async (req, res) => {
         console.log(`✅ GHN Order created: ${ghnOrderCode}`);
         console.log("GHN Result:", ghnResult);
 
-        // Lưu ClientOrderCode vào DB (vẫn trong transaction)
+        // ✅ SỬA: Lấy Fee từ GHN (nếu có), fallback finalShippingFee
+        const ghnFee = ghnResult.fee || finalShippingFee;  // Adjust 'fee' nếu GHN trả field khác (ví dụ: serviceFee)
+        console.log(`💰 GHN Fee: ${ghnFee} (updated from estimate ${finalShippingFee})`);
+
+        // Lưu ClientOrderCode và CẬP NHẬT ShippingFee vào DB (vẫn trong transaction)
         await Orders.update(
-          { ClientOrderCode: `ORDER-${order.OrderId}` },
+          { 
+            ClientOrderCode: `ORDER-${order.OrderId}`,
+            ShippingFee: ghnFee  // ✅ THÊM: Update phí ship thực tế từ GHN
+          },
           { where: { OrderId: order.OrderId }, transaction }
         );
-        console.log(`💾 Saved ClientOrderCode: ORDER-${order.OrderId}`);
+        console.log(`💾 Saved ClientOrderCode: ORDER-${order.OrderId} và ShippingFee: ${ghnFee}`);
         console.log("====================================\n");
       } catch (ghnErr) {
         console.error("❌ GHN Order creation FAILED:", ghnErr.message);
@@ -724,6 +736,30 @@ const placeOrder = async (req, res) => {
     await transaction.commit();
     console.log("✅ Transaction committed successfully");
 
+    // ✅ Gửi email xác nhận đơn hàng (non-blocking)
+    try {
+      const user = await Users.findByPk(req.user.id);
+      if (user && user.Email) {
+        const orderItems = itemsToOrder.map(item => ({
+          name: item.FoodName,
+          quantity: item.Quantity,
+          price: item.TotalPrice / item.Quantity, // Giá đơn vị
+        }));
+
+        sendOrderConfirmation(user.Email, user.FullName || user.Username, {
+          orderId: order.OrderId,
+          orderDate: order.OrderDate,
+          items: orderItems,
+          totalAmount,
+          shippingAddress: `${deliveryAddress.Address}, ${deliveryAddress.Ward}, ${deliveryAddress.District}, ${deliveryAddress.Province}`,
+          phone: deliveryAddress.Phone,
+          paymentMethod: paymentMethodName,
+        }).catch(err => console.error('❌ Lỗi gửi email xác nhận đơn hàng:', err));
+      }
+    } catch (emailErr) {
+      console.error('❌ Email error (non-critical):', emailErr.message);
+    }
+
     // ✅ Emit real-time event cho đơn COD (non-blocking, không throw error)
     try {
       const orderData = {
@@ -762,7 +798,8 @@ const placeOrder = async (req, res) => {
       message: "Đặt hàng thành công!",
       orderId: order.OrderId,
       subtotal,
-      shippingFee: finalShippingFee,
+      shippingFee: finalShippingFee,  // Hoặc dùng ghnFee nếu muốn chính xác hơn (nhưng vì đã update DB, frontend có thể lấy sau)
+      discountAmount,  // ✅ THÊM: Để frontend biết ngay
       totalAmount,
     });
   } catch (err) {
@@ -783,5 +820,4 @@ const placeOrder = async (req, res) => {
     });
   }
 };
-
 module.exports = { authenticateToken, placeOrder };

@@ -374,17 +374,37 @@ const calculateShippingFee = async (req, res) => {
 
     // ✅ Tính phí ship bằng GHN API
     try {
-      const ghnItems = items.map((item) => ({
-        name: item.FoodName || item.name || "Sản phẩm",
-        quantity: item.quantity || 1,
-        weight: 500, // Fix cứng 500g/sản phẩm
-      }));
+      // ✅ FIX: Giới hạn quantity tối đa 10 cho mỗi item để tránh weight quá lớn
+      // (Coffee/drinks không nên ship số lượng quá lớn một lúc)
+      const ghnItems = items.map((item) => {
+        const safeQuantity = Math.min(item.quantity || 1, 10);
+        return {
+          name: item.FoodName || item.name || "Sản phẩm",
+          quantity: safeQuantity,
+          weight: 500, // Fix cứng 500g/sản phẩm
+        };
+      });
 
-      const shippingFee = await calculateGHNShippingFee({
+      let shippingFee = await calculateGHNShippingFee({
         toDistrictId: districtId,
         toWardCode: wardCode,
         items: ghnItems,
       });
+
+      // ✅ FIX: Giới hạn phí ship hợp lý cho coffee/drinks
+      // - Trong nội thành (< 5km): 15k-30k
+      // - Ngoại thành (5-15km): 30k-60k
+      // - Xa (> 15km): 60k-80k
+      const MAX_SHIPPING_FEE = 40000; // Giảm từ 200k xuống 80k
+      if (shippingFee > MAX_SHIPPING_FEE) {
+        console.warn(
+          `⚠️  Shipping fee ${shippingFee.toLocaleString()}đ exceeds max ${MAX_SHIPPING_FEE.toLocaleString()}đ. Using max value.`
+        );
+        console.warn(
+          "   This might indicate GHN API returned incorrect value (insurance/cod amount instead of shipping fee)"
+        );
+        shippingFee = MAX_SHIPPING_FEE;
+      }
 
       // ✅ Cache kết quả
       shippingCache.set(cacheKey, {

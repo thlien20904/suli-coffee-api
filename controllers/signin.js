@@ -15,7 +15,10 @@ exports.login = async (req, res) => {
     const user = await User.findOne({ where: { Username: username } });
     if (!user) {
       console.log("User not found for username:", username);
-      return res.status(400).json({ message: "Username không tồn tại" });
+      return res.status(400).json({ 
+        message: "Tên đăng nhập không tồn tại",
+        errorType: "username"
+      });
     }
     console.log(
       "User found - PasswordHash:",
@@ -75,7 +78,10 @@ exports.login = async (req, res) => {
 
     if (!isValid) {
       console.log("Invalid credentials for username:", username);
-      return res.status(400).json({ message: "Sai thông tin đăng nhập!" });
+      return res.status(400).json({ 
+        message: "Mật khẩu không đúng",
+        errorType: "password"
+      });
     }
 
     const role = user.Role?.trim() || "NoRole";

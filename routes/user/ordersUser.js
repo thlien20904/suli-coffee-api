@@ -72,6 +72,11 @@ router.get(
   ordersUserController.authenticateToken,
   ordersUserController.getPendingOrders
 );
+router.post(
+  "/pending/:orderId/cancel",
+  ordersUserController.authenticateToken,
+  ordersUserController.cancelPendingOrder
+);
 
 // --- Re-order ---
 router.post(

@@ -94,6 +94,16 @@ module.exports = function (sequelize, DataTypes) {
         type: DataTypes.STRING(50),
         allowNull: true,
       },
+      ShippingFee: {
+        type: DataTypes.DECIMAL(18, 3),
+        allowNull: false,
+        defaultValue: 0,
+      },
+      DiscountAmount: {
+        type: DataTypes.DECIMAL(18, 3),
+        allowNull: false,
+        defaultValue: 0,
+      },
     },
     {
       sequelize,

@@ -16,6 +16,7 @@ const {
   getPendingOrders,
   getOrderById,
   autoCancelPendingOrders,
+  cancelPendingOrder,
 } = require("./orders/pending");
 
 module.exports = {
@@ -30,6 +31,7 @@ module.exports = {
   getPendingOrders,
   getOrderById,
   autoCancelPendingOrders,
+  cancelPendingOrder,
   getStores,
   getUserAddresses,
   getGHNLocations,

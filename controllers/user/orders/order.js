@@ -876,14 +876,31 @@ const placeOrder = async (req, res) => {
 
       const uniqueTxnRef = `${order.OrderId}_${Date.now()}`;
 
+      // ✅ Tự động detect môi trường từ Origin header hoặc Referer
+      const origin = req.headers.origin || req.headers.referer || "";
+      let vnpReturnUrl;
+
+      if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
+        // Môi trường local
+        vnpReturnUrl = "http://localhost:3000/vnpay-return";
+      } else if (origin.includes("vercel.app")) {
+        // Môi trường production (Vercel)
+        vnpReturnUrl = "https://suli-coffee-web.vercel.app/vnpay-return";
+      } else {
+        // Fallback: dùng env hoặc localhost
+        vnpReturnUrl =
+          process.env.VNP_RETURN_URL || "http://localhost:3000/vnpay-return";
+      }
+
+      console.log(`🔄 VNPay Return URL: ${vnpReturnUrl} (origin: ${origin})`);
+
       const paymentUrl = await vnpay.buildPaymentUrl({
         vnp_Amount: totalAmount,
         vnp_IpAddr: ipAddr,
         vnp_TxnRef: uniqueTxnRef,
         vnp_OrderInfo: `Thanh toán đơn hàng #${order.OrderId}`,
         vnp_OrderType: ProductCode.Other,
-        vnp_ReturnUrl:
-          process.env.VNPAY_RETURN_URL || "http://localhost:3000/vnpay-return",
+        vnp_ReturnUrl: vnpReturnUrl,
         vnp_Locale: VnpLocale.VN,
         vnp_CreateDate: dateFormat(new Date()),
         vnp_ExpireDate: dateFormat(tomorrow),

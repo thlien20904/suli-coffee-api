@@ -42,16 +42,27 @@ async function calculateGHNShippingFee(params) {
     weight: item.weight || 500,
   }));
 
-  // Tính tổng khối lượng
-  const totalWeight = ghnItems.reduce(
+  // ✅ Tính tổng khối lượng (weight * quantity cho mỗi item)
+  let totalWeight = ghnItems.reduce(
     (sum, item) => sum + item.weight * item.quantity,
     0
   );
 
+  // ✅ FIX: Giới hạn weight tối đa 5kg (5000g) để tránh phí ship nhảy vọt
+  // Coffee/drinks thường nhẹ, không nên vượt quá giới hạn này
+  const MAX_WEIGHT = 5000; // 5kg
+  if (totalWeight > MAX_WEIGHT) {
+    console.warn(
+      `⚠️  Total weight ${totalWeight}g exceeds max ${MAX_WEIGHT}g. Using max value.`
+    );
+    totalWeight = MAX_WEIGHT;
+  }
+
   // Chọn service_type_id tự động
   const serviceTypeId = totalWeight <= 2000 && items.length === 1 ? 2 : 5;
 
-  // Tính kích thước theo GHN nếu là Hàng nặng
+  // ✅ FIX: Tính kích thước theo GHN - Giới hạn height tối đa để tránh phí ship nhảy vọt
+  // Coffee/drinks thường có height nhỏ (15-20cm), không cộng dồn
   const length =
     serviceTypeId === 2 ? 15 : Math.max(...ghnItems.map((i) => i.length));
   const width =
@@ -59,7 +70,7 @@ async function calculateGHNShippingFee(params) {
   const height =
     serviceTypeId === 2
       ? 20
-      : ghnItems.reduce((sum, i) => sum + i.height * i.quantity, 0);
+      : Math.min(30, Math.max(...ghnItems.map((i) => i.height))); // ✅ FIX: Dùng max height thay vì cộng dồn, limit 30cm
 
   // Payload gửi GHN
   const payload = {
@@ -88,6 +99,10 @@ async function calculateGHNShippingFee(params) {
   console.log("Service Type:", serviceTypeId === 2 ? "Hàng nhẹ" : "Hàng nặng");
   console.log("Total Weight:", totalWeight, "g | Items:", items.length);
   console.log("Dimensions (L×W×H):", `${length}×${width}×${height} cm`);
+  console.log(
+    "📋 Items detail:",
+    ghnItems.map((i) => `${i.name} x${i.quantity} (${i.weight}g)`).join(", ")
+  );
 
   // ⚠️ Warning nếu district có vẻ không hợp lệ
   if (toDistrictId === 1454) {
@@ -115,8 +130,19 @@ async function calculateGHNShippingFee(params) {
       throw new Error(response.data.message || "GHN API error");
     }
 
+    // ✅ LOG FULL RESPONSE để debug
+    console.log(
+      "📋 GHN Response Full Data:",
+      JSON.stringify(response.data.data, null, 2)
+    );
+
     const shippingFee = response.data.data.total;
+    const serviceFee = response.data.data.service_fee || 0;
+    const insuranceFee = response.data.data.insurance_fee || 0;
+
     console.log("✅ GHN Shipping Fee:", shippingFee.toLocaleString(), "VNĐ");
+    console.log("   - Service Fee:", serviceFee.toLocaleString(), "VNĐ");
+    console.log("   - Insurance Fee:", insuranceFee.toLocaleString(), "VNĐ");
     console.log("==========================================\n");
     return shippingFee;
   } catch (error) {

@@ -365,7 +365,9 @@ exports.login = async (req, res) => {
     if (!user)
       return res.status(401).json({
         success: false,
-        errors: [errObj(null, "Username/Email hoặc mật khẩu không đúng.")],
+        message: "Tên đăng nhập không tồn tại",
+        errorType: "username",
+        errors: [errObj("identifier", "Tên đăng nhập không tồn tại")],
       });
 
     // So khớp mật khẩu
@@ -378,7 +380,9 @@ exports.login = async (req, res) => {
     if (!ok)
       return res.status(401).json({
         success: false,
-        errors: [errObj(null, "Username/Email hoặc mật khẩu không đúng.")],
+        message: "Mật khẩu không đúng",
+        errorType: "password",
+        errors: [errObj("password", "Mật khẩu không đúng")],
       });
 
     // Nếu mật khẩu lưu dạng plain text, hash lại
