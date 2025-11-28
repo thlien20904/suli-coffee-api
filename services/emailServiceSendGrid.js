@@ -102,14 +102,15 @@ async function sendOrderConfirmation(userEmail, userName, orderDetails) {
       (item) => `
     <tr>
       <td style="padding: 10px; border-bottom: 1px solid #eee;">${
-        item.name
+        item.FoodName || item.name || "(Không rõ tên)"
       }</td>
       <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${
-        item.quantity
+        item.Quantity || item.quantity || 1
       }</td>
-      <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${item.price.toLocaleString(
-        "vi-VN"
-      )}₫</td>
+      <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${(item.TotalPrice
+        ? item.TotalPrice / (item.Quantity || 1)
+        : item.price
+      ).toLocaleString("vi-VN")}₫</td>
     </tr>
   `
     )
@@ -183,7 +184,7 @@ async function sendOrderConfirmation(userEmail, userName, orderDetails) {
           </p>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="https://your-app.vercel.app/user/orders" 
+            <a href="https://suli-coffee-web.vercel.app/profile/orders" 
                style="background: linear-gradient(90deg, #81c784, #66bb6a); 
                       color: white; 
                       padding: 15px 40px; 
@@ -360,9 +361,52 @@ async function sendVerificationEmail(toEmail, token, username) {
     return false;
   }
 }
+// Gửi OTP qua SendGrid
+async function sendOtpEmail(email, otp) {
+  const fromEmail = process.env.FROM_EMAIL || "thuylien2k4@gmail.com";
 
+  const msg = {
+    to: email,
+    from: fromEmail,
+    subject: "Mã OTP đặt lại mật khẩu - SuLi Coffee",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
+        <div style="background: linear-gradient(90deg, #81c784, #66bb6a); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+          <h1 style="color: white; margin: 0;">Đặt lại mật khẩu</h1>
+        </div>
+        <div style="background: white; padding: 30px; border-radius: 0 0 10px 10px; text-align: center;">
+          <p style="font-size: 16px; color: #333;">Xin chào,</p>
+          <p style="font-size: 15px; color: #555; line-height: 1.6;">
+            Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản SuLi Coffee.
+          </p>
+          <div style="background: #f0f8ff; padding: 25px; border-radius: 10px; margin: 25px 0; font-size: 28px; font-weight: bold; color: #2e7d32; letter-spacing: 5px;">
+            ${otp}
+          </div>
+          <p style="color: #d32f2f; font-weight: bold;">Mã OTP có hiệu lực trong 10 phút.</p>
+          <p style="color: #777; font-size: 14px; margin-top: 30px;">
+            Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.
+          </p>
+          <hr style="border: 1px solid #eee; margin: 30px 0;">
+          <p style="font-size: 13px; color: #aaa; text-align: center;">
+            © 2025 SuLi Coffee - Cà phê chất lượng, phục vụ tận tâm
+          </p>
+        </div>
+      </div>
+    `,
+  };
+
+  try {
+    await sgMail.send(msg);
+    console.log(`SendGrid: OTP gửi thành công đến ${email}`);
+    return { success: true };
+  } catch (error) {
+    console.error("SendGrid: Lỗi gửi OTP:", error.response?.body || error.message);
+    return { success: false, error: error.message };
+  }
+} 
 module.exports = {
   sendSignupConfirmation,
   sendOrderConfirmation,
-  sendVerificationEmail,  // ✅ Export thêm cho verification
+  sendVerificationEmail,
+  sendOtpEmail, // Thêm dòng này
 };
