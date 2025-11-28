@@ -1,6 +1,5 @@
-// Định nghĩa FRONTEND_URL theo biến môi trường thực tế
-const FRONTEND_URL =
-  process.env.REACT_APP_FRONTEND_URL || "http://localhost:3000";
+// Định nghĩa FRONTEND_URL để tránh lỗi undefined
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 

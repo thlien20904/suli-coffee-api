@@ -13,7 +13,8 @@ console.log(
 // Email helper (local/dev: Nodemailer Gmail)
 // --------------------
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:5000";
-const FRONTEND_URL =process.env.REACT_APP_FRONTEND_URL || "http://localhost:3000";
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+
 function createTransport() {
   if (isProduction) {
     console.log("🔧 Skipping Nodemailer in production (using SendGrid)");
