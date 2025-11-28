@@ -109,7 +109,7 @@ if (useSendGrid) {
             </p>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="https://your-app.vercel.app" 
+              <a href="https://suli-coffee-web.pages.dev/" 
                  style="background: linear-gradient(90deg, #81c784, #66bb6a); 
                         color: white; 
                         padding: 15px 40px; 
@@ -241,7 +241,7 @@ if (useSendGrid) {
             </p>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="https://suli-coffee-web.vercel.app/profile/orders" 
+              <a href="https://suli-coffee-web.pages.dev/profile/orders" 
                  style="background: linear-gradient(90deg, #81c784, #66bb6a); 
                         color: white; 
                         padding: 15px 40px; 
