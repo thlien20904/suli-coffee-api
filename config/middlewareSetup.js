@@ -27,6 +27,7 @@ function setupMiddleware(app, io = null) {
   const allowedOrigins = [
     "http://localhost:3000", // Local development
     "https://suli-coffee-web.vercel.app", // Production frontend
+    "https://suli-coffee-web.pages.dev"  // Cloudflare Pages
   ];
 
   console.log("🌐 CORS allowed origins:", allowedOrigins);
