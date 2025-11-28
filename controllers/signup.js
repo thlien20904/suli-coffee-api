@@ -1,42 +1,183 @@
-const bcryptjs = require("bcryptjs");
+// Định nghĩa FRONTEND_URL theo biến môi trường thực tế
+const FRONTEND_URL =
+  process.env.REACT_APP_FRONTEND_URL || "http://localhost:3000";
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const User = require("../models/User");
-const { Op } = require("sequelize"); // Import Op để fix lỗi Op.or
-const { sendSignupConfirmation } = require("../services/emailService");
-require("dotenv").config();
 
-exports.signup = async (req, res) => {
-  const { username, email, password, fullName, phone, address } = req.body;
+const sequelize = require("../config/sequelize");
+const { Op } = require("sequelize"); // Import Op từ sequelize
+const initModels = require("../models/init-models");
+const models = initModels(sequelize);
+const { Users } = models;
+
+// ====== Helpers ======
+
+// SECRET cho JWT (từ .env)
+const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_fallback";
+
+// Ký JWT với thời gian sống tùy chọn
+const signToken = (payload, expiresIn = "7d") =>
+  jwt.sign(payload, JWT_SECRET, { expiresIn });
+
+// Import email helpers từ file con cùng cấp
+const { sendVerificationEmail } = require("./emailHelpers");
+
+// Regex util
+const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((v || "").trim());
+const isUsername = (v) => /^[a-zA-Z0-9_.-]{3,30}$/.test((v || "").trim());
+const isStrongPassword = (v) =>
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).{8,}$/.test(v || "");
+const isVNPhone10 = (v) =>
+  /^0(3|5|7|8|9)\d{8}$/.test((v || "").replace(/\s+/g, ""));
+const errObj = (field, msg) => ({ field, msg });
+
+// =========================
+// 📌 ĐĂNG KÝ NGƯỜI DÙNG
+// =========================
+exports.register = async (req, res) => {
+  console.log("🚀 REGISTER FUNCTION STARTED");
   try {
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email || !emailRegex.test(email)) {
-      console.log("❌ Invalid email format:", email);
-      return res.status(400).json({ 
-        message: "Email không hợp lệ! Vui lòng nhập đúng định dạng email." 
+    const { username, email, password, fullName, phone, address } = req.body;
+    console.log("📝 REQUEST DATA:", {
+      username,
+      email,
+      fullName,
+      phone,
+      address,
+    });
+
+    // Validate đầu vào
+    const errs = [];
+    if (!username || !isUsername(username))
+      errs.push(
+        errObj("username", "Username 3–30 ký tự, chỉ a-z, A-Z, 0-9, _ . -")
+      );
+    if (!email || !isEmail(email))
+      errs.push(errObj("email", "Email không đúng định dạng."));
+    if (!password || !isStrongPassword(password))
+      errs.push(
+        errObj(
+          "password",
+          "Mật khẩu ≥8 ký tự, gồm chữ HOA, thường, số và ký tự đặc biệt."
+        )
+      );
+    if (!fullName || fullName.length < 2)
+      errs.push(errObj("fullName", "Họ tên tối thiểu 2 ký tự."));
+    if (!phone || !isVNPhone10(phone))
+      errs.push(errObj("phone", "SĐT phải 10 số, bắt đầu 03/05/07/08/09."));
+    if (!address || address.length < 5)
+      errs.push(errObj("address", "Địa chỉ tối thiểu 5 ký tự."));
+
+    if (errs.length)
+      return res.status(400).json({ success: false, errors: errs });
+
+    // Kiểm tra trùng username/email
+    const exists = await Users.findOne({
+      where: { [Op.or]: [{ Username: username }, { Email: email }] },
+    });
+    if (exists) {
+      const errors = [];
+      if (exists.Username === username)
+        errors.push(errObj("username", "Username đã tồn tại."));
+      if (exists.Email === email)
+        errors.push(errObj("email", "Email đã tồn tại."));
+      console.warn("Đăng ký thất bại - trùng username/email:", {
+        usernameExists: exists.Username === username,
+        emailExists: exists.Email === email,
+      });
+      return res.status(409).json({
+        success: false,
+        message: "Username hoặc Email đã tồn tại.",
+        errors,
       });
     }
 
-    // Kiểm tra username đã tồn tại
-    const existedUsername = await User.findOne({
-      where: { Username: username },
+    // Hash mật khẩu nhưng chưa tạo user — gửi email xác nhận
+    const hashed = await bcrypt.hash(password, 10);
+
+    // Tạo token chứa thông tin đăng ký tạm thời (không gồm password plain)
+    const verifyPayload = {
+      username,
+      email,
+      passwordHash: hashed,
+      fullName,
+      phone,
+      address,
+    };
+    const verifyToken = signToken(verifyPayload, "24h");
+
+    // Gửi email xác nhận
+    console.log("📧 STARTING EMAIL SEND PROCESS");
+    const mailSent = await sendVerificationEmail(email, verifyToken, username);
+    console.log("📧 EMAIL SEND RESULT:", mailSent);
+    if (!mailSent) {
+      // Nếu SMTP không cấu hình hoặc gửi thất bại, trả lỗi rõ ràng
+      return res.status(500).json({
+        success: false,
+        message:
+          "Không thể gửi email xác nhận. Vui lòng liên hệ quản trị viên hoặc thử lại sau.",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message:
+        "Đăng ký tạm thời thành công. Vui lòng kiểm tra email để xác nhận và hoàn tất đăng ký.",
     });
-    if (existedUsername) {
-      return res.status(400).json({ message: "Tên đăng nhập đã tồn tại!" });
+  } catch (err) {
+    console.error("❌ Lỗi đăng ký người dùng:", err);
+    if (
+      err.name === "SequelizeValidationError" ||
+      err.name === "SequelizeUniqueConstraintError"
+    ) {
+      return res
+        .status(400)
+        .json({ success: false, message: err.errors[0].message });
+    }
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
+// =========================
+// 📌 XÁC NHẬN EMAIL (KẾT THÚC ĐĂNG KÝ)
+// =========================
+exports.verifyEmail = async (req, res) => {
+  try {
+    const token = req.query.token || req.body.token;
+    if (!token)
+      return res
+        .status(400)
+        .json({ success: false, message: "Thiếu token xác nhận." });
+
+    let payload;
+    try {
+      payload = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      return res.status(400).json({
+        success: false,
+        message: "Token không hợp lệ hoặc đã hết hạn.",
+      });
     }
 
-    // Kiểm tra email đã tồn tại
-    const existedEmail = await User.findOne({ where: { Email: email } });
-    if (existedEmail) {
-      return res.status(400).json({ message: "Email đã được sử dụng!" });
+    const { username, email, passwordHash, fullName, phone, address } = payload;
+    if (!username || !email || !passwordHash) {
+      return res.status(400).json({
+        success: false,
+        message: "Payload token thiếu thông tin cần thiết.",
+      });
     }
 
-    // Hash password
-    const passwordHash = await bcryptjs.hash(password, 12);
-    console.log("Hashed password for registration:", passwordHash);
+    // Kiểm tra tồn tại trước khi tạo
+    const exists = await Users.findOne({
+      where: { [Op.or]: [{ Username: username }, { Email: email }] },
+    });
+    if (exists) {
+      return res
+        .status(409)
+        .json({ success: false, message: "Username hoặc Email đã tồn tại." });
+    }
 
-    // Lưu user vào DB
-    const user = await User.create({
+    const newUser = await Users.create({
       Username: username,
       Email: email,
       PasswordHash: passwordHash,
@@ -46,36 +187,43 @@ exports.signup = async (req, res) => {
       Role: "User",
     });
 
-    // Tạo token JWT
-    const token = jwt.sign(
-      { id: user.Id, role: user.Role },
-      process.env.JWT_SECRET,
-      { expiresIn: "48h" }
+    // Optionally, create a JWT so user is logged in after verification
+    const authToken = signToken(
+      {
+        id: newUser.Id,
+        role: newUser.Role || "User",
+        username: newUser.Username,
+        email: newUser.Email,
+      },
+      "2h"
     );
 
-    // Gửi email xác nhận đăng ký (không chặn response)
-    try {
-      await sendSignupConfirmation(user.Email, user.FullName);
-      console.log("✅ Email xác nhận đã gửi đến:", user.Email);
-    } catch (emailErr) {
-      console.error("❌ Lỗi gửi email xác nhận:", emailErr.message);
-      if (emailErr.code === 'EAUTH') {
-        console.error("❌ Lỗi xác thực Gmail - Kiểm tra EMAIL_USER và EMAIL_PASS trong .env");
-      } else if (emailErr.code === 'EENVELOPE') {
-        console.error("❌ Email nhận không hợp lệ:", user.Email);
-      } else if (emailErr.responseCode === 550) {
-        console.error("❌ Email không tồn tại hoặc bị từ chối:", user.Email);
-      }
-      // Không throw error, vẫn cho đăng ký thành công
+    // Redirect to frontend success page instead of login directly
+    const redirectTo = `${FRONTEND_URL.replace(
+      /\/$/,
+      ""
+    )}/email-verified?success=1`;
+    // If request comes from API client (Accept: application/json) prefer JSON response.
+    const acceptsJson =
+      req.get("accept") && req.get("accept").includes("application/json");
+    if (acceptsJson || req.xhr) {
+      return res.json({
+        success: true,
+        message: "Xác nhận thành công. Tài khoản đã được tạo.",
+        token: authToken,
+        user: {
+          id: newUser.Id,
+          username: newUser.Username,
+          email: newUser.Email,
+        },
+      });
     }
 
-    res.status(201).json({
-      message: "Đăng ký thành công! Vui lòng đăng nhập.",
-      token,
-      user: { id: user.Id, email: user.Email, role: user.Role },
-    });
-  } catch (error) {
-    console.error("Register error:", error);
-    res.status(500).json({ message: "Có lỗi xảy ra: " + error.message });
+    return res.redirect(redirectTo);
+  } catch (err) {
+    console.error("Lỗi xác nhận email:", err);
+    res
+      .status(500)
+      .json({ success: false, message: "Lỗi server khi xác nhận email." });
   }
 };
