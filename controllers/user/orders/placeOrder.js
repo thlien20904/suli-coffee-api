@@ -1,7 +1,6 @@
 const { sequelize, models, Op } = require("./config");
 const jwt = require("jsonwebtoken");
 const { calculateShippingFee } = require("./prepareOrder");
-const { getVietnamTime } = require("../../../utils/timezone");
 const { VNPay, ProductCode, VnpLocale, dateFormat } = require("vnpay");
 const {
   emitOrderUpdate,
@@ -310,7 +309,7 @@ const placeOrder = async (req, res) => {
       {
         UserId: req.user.id,
         CuaHangId: cuaHangId,
-        OrderDate: getVietnamTime(),
+        OrderDate: new Date(),
         TotalAmount: totalAmount,
         ShippingFee: finalShippingFee, // ✅ THÊM: Lưu phí ship
         DiscountAmount: discountAmount, // ✅ THÊM: Lưu giảm giá

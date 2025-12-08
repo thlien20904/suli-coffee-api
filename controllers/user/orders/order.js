@@ -8,7 +8,6 @@ const {
   dateFormat,
   Op,
 } = require("./config");
-const { getVietnamTime } = require("../../../utils/timezone");
 const jwt = require("jsonwebtoken");
 const axios = require("axios");
 
@@ -725,7 +724,7 @@ const placeOrder = async (req, res) => {
       {
         UserId: req.user.id,
         CuaHangId: cuaHangId,
-        OrderDate: getVietnamTime(),
+        OrderDate: new Date(),
         TotalAmount: totalAmount,
         PaymentMethodId: paymentMethodId,
         StatusId: orderStatus?.StatusId,
