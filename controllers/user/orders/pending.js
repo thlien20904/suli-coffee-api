@@ -2,6 +2,7 @@
 const sequelize = require("../../../config/sequelize");
 const initModels = require("../../../models/init-models");
 const models = initModels(sequelize);
+const { getVietnamTime } = require("../../../utils/timezone");
 const { Op } = require("sequelize");
 const {
   Orders,
@@ -248,7 +249,7 @@ exports.savePending = async (req, res) => {
     const order = await Orders.create(
       {
         UserId: req.user.id,
-        OrderDate: new Date(),
+        OrderDate: getVietnamTime(),
         TotalAmount: orderItems.reduce((s, it) => s + (it.TotalPrice || 0), 0),
         PaymentMethodId: defaultPaymentMethod.Id, // ✅ Phương thức thanh toán mặc định
         PaymentStatusId: paymentStatus.PaymentStatusId,
