@@ -41,6 +41,9 @@ exports.getOrders = async (req, res) => {
     // Lọc theo tab
     let statusName;
     switch (tab) {
+      case "don-luu-tam":
+        statusName = "Chưa hoàn tất";
+        break;
       case "cho-xac-nhan":
         statusName = "Đặt hàng thành công";
         break;
@@ -272,7 +275,103 @@ exports.updateOrderStatus = async (req, res) => {
 };
 
 /* =====================================================
-   3️⃣ ĐỒNG BỘ TRẠNG THÁI ĐƠN HÀNG TỪ GHN
+   3️⃣ HỦY ĐƠN LƯU TẠM (Admin)
+   POST /api/admin/orders/pending/:id/cancel
+===================================================== */
+exports.cancelPendingOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const orderId = parseInt(id);
+
+    console.log(`[Admin] Đang hủy đơn lưu tạm #${orderId}...`);
+
+    // Tìm đơn hàng
+    const order = await Orders.findByPk(orderId, {
+      include: [
+        { model: OrderStatus, as: "Status" },
+        { model: Users, as: "User" },
+      ],
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy đơn hàng!",
+      });
+    }
+
+    // Kiểm tra đơn hàng phải là đơn lưu tạm (StatusId = 6)
+    if (order.StatusId !== 6) {
+      return res.status(400).json({
+        success: false,
+        message: `Không thể hủy đơn hàng này. Trạng thái hiện tại: ${
+          order.Status?.StatusName || "N/A"
+        }`,
+      });
+    }
+
+    // Tìm status "Đã hủy" (ID = 5)
+    const canceledStatus = await OrderStatus.findOne({
+      where: { StatusName: "Đã hủy" },
+    });
+
+    if (!canceledStatus) {
+      console.error("❌ Không tìm thấy trạng thái 'Đã hủy' trong DB!");
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi hệ thống: Không tìm thấy trạng thái hủy đơn",
+      });
+    }
+
+    // Cập nhật trạng thái sang "Đã hủy"
+    await order.update({ StatusId: canceledStatus.StatusId });
+
+    console.log(`✅ [Admin] Đã hủy đơn lưu tạm #${orderId}`);
+
+    // ✅ Emit real-time event
+    const statusChangeData = {
+      orderId: order.OrderId,
+      status: canceledStatus.StatusName,
+      statusId: canceledStatus.StatusId,
+      message: `Đơn lưu tạm đã được Admin hủy`,
+    };
+
+    if (order.UserId) {
+      emitOrderStatusChange(req, order.UserId, statusChangeData);
+      emitUserNotification(req, order.UserId, {
+        type: "order-status",
+        title: "Đơn hàng bị hủy",
+        message: `Đơn lưu tạm #${order.OrderId} đã bị Admin hủy`,
+      });
+    }
+
+    emitAdminNotification(req, {
+      type: "order-status",
+      title: "Đã hủy đơn lưu tạm",
+      message: `Admin đã hủy đơn #${order.OrderId}`,
+      data: statusChangeData,
+    });
+
+    res.json({
+      success: true,
+      message: "Đã hủy đơn lưu tạm thành công!",
+      order: {
+        OrderId: order.OrderId,
+        StatusId: canceledStatus.StatusId,
+        StatusName: canceledStatus.StatusName,
+      },
+    });
+  } catch (err) {
+    console.error("❌ Lỗi hủy đơn lưu tạm:", err);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server khi hủy đơn lưu tạm",
+    });
+  }
+};
+
+/* =====================================================
+   4️⃣ ĐỒNG BỘ TRẠNG THÁI ĐƠN HÀNG TỪ GHN
    POST /api/admin/orders/:id/sync-ghn
 ===================================================== */
 exports.syncGHNOrderStatus = async (req, res) => {

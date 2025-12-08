@@ -13,12 +13,17 @@ router.get("/", orderController.getOrders);
 router.post("/:id/status", orderController.updateOrderStatus);
 
 /* =====================================================
-   3️⃣ ĐỒNG BỘ TRẠNG THÁI ĐƠN HÀNG TỪ GHN
+   3️⃣ HỦY ĐƠN LƯU TẠM (Admin)
+===================================================== */
+router.post("/pending/:id/cancel", orderController.cancelPendingOrder);
+
+/* =====================================================
+   4️⃣ ĐỒNG BỘ TRẠNG THÁI ĐƠN HÀNG TỪ GHN
 ===================================================== */
 router.post("/:id/sync-ghn", orderController.syncGHNOrderStatus);
 
 /* =====================================================
-   4️⃣ XÁC NHẬN / TỪ CHỐI ĐƠN HÀNG QR CODE
+   5️⃣ XÁC NHẬN / TỪ CHỐI ĐƠN HÀNG QR CODE
 ===================================================== */
 router.post("/:id/qr-action", orderController.confirmOrRejectQR);
 

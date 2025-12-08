@@ -166,7 +166,7 @@ exports.savePending = async (req, res) => {
   try {
     console.log("📝 Save pending request body:", req.body);
     console.log("👤 User from token:", req.user);
-    
+
     const { orderItems, newAddress } = req.body;
     if (!orderItems || !orderItems.length) {
       await transaction.rollback();
@@ -175,22 +175,42 @@ exports.savePending = async (req, res) => {
 
     if (!req.user || !req.user.id) {
       await transaction.rollback();
-      return res.status(401).json({ success: false, message: "Chưa đăng nhập" });
+      return res
+        .status(401)
+        .json({ success: false, message: "Chưa đăng nhập" });
     }
 
-    // Lấy hoặc tạo Status "Chưa hoàn tất"
-    const [status] = await OrderStatus.findOrCreate({
+    // ✅ Tìm Status "Chưa hoàn tất" có sẵn trong DB (StatusId = 6)
+    const status = await OrderStatus.findOne({
       where: { StatusName: "Chưa hoàn tất" },
-      defaults: { StatusName: "Chưa hoàn tất" },
       transaction,
     });
 
-    // Lấy PaymentStatus "Chờ thanh toán"
-    const [paymentStatus] = await PaymentStatus.findOrCreate({
+    if (!status) {
+      await transaction.rollback();
+      console.error("❌ Status 'Chưa hoàn tất' not found in database!");
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi hệ thống: Không tìm thấy trạng thái 'Chưa hoàn tất'",
+      });
+    }
+
+    console.log("✅ Found status 'Chưa hoàn tất':", status.StatusId);
+
+    // ✅ Tìm PaymentStatus "Chờ thanh toán" có sẵn
+    const paymentStatus = await PaymentStatus.findOne({
       where: { PaymentStatusName: "Chờ thanh toán" },
-      defaults: { PaymentStatusName: "Chờ thanh toán" },
       transaction,
     });
+
+    if (!paymentStatus) {
+      await transaction.rollback();
+      console.error("❌ PaymentStatus 'Chờ thanh toán' not found in database!");
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi hệ thống: Không tìm thấy trạng thái thanh toán",
+      });
+    }
 
     // Kiểm tra đơn tạm gần đây trùng
     const recent = await Orders.findOne({
@@ -205,7 +225,7 @@ exports.savePending = async (req, res) => {
       },
       transaction,
     });
-    
+
     if (recent) {
       await transaction.commit();
       console.log("✅ Found recent pending order:", recent.OrderId);
@@ -244,14 +264,14 @@ exports.savePending = async (req, res) => {
     // Validate và tạo OrderDetails
     for (const it of orderItems) {
       console.log("📦 Creating order detail for Food:", it.FoodId);
-      
+
       // Validate FoodId exists
       const foodExists = await Food.findByPk(it.FoodId, { transaction });
       if (!foodExists) {
         console.warn("⚠️ Food not found, skipping:", it.FoodId);
         continue;
       }
-      
+
       const od = await OrderDetails.create(
         {
           OrderId: order.OrderId,
@@ -276,7 +296,7 @@ exports.savePending = async (req, res) => {
 
     await transaction.commit();
     console.log("✅ Transaction committed successfully");
-    
+
     res.json({
       success: true,
       message: "Lưu đơn hàng chưa hoàn tất thành công",
@@ -407,24 +427,29 @@ exports.getOrderById = async (req, res) => {
 exports.autoCancelPendingOrders = async () => {
   const transaction = await sequelize.transaction();
   try {
-    const [pendingStatus] = await OrderStatus.findOrCreate({
+    // ✅ Tìm status có sẵn trong DB thay vì findOrCreate
+    const pendingStatus = await OrderStatus.findOne({
       where: { StatusName: "Chưa hoàn tất" },
-      defaults: { StatusName: "Chưa hoàn tất" },
       transaction,
     });
-    const [cancelledStatus] = await OrderStatus.findOrCreate({
+    const cancelledStatus = await OrderStatus.findOne({
       where: { StatusName: "Đã hủy" },
-      defaults: { StatusName: "Đã hủy" },
       transaction,
     });
+
     if (!pendingStatus || !cancelledStatus) {
       console.error(
-        "Could not find required statuses 'Chưa hoàn tất' or 'Đã hủy'."
+        "❌ Auto-cancel: Could not find required statuses 'Chưa hoàn tất' or 'Đã hủy'."
       );
       await transaction.rollback();
       return;
     }
-    const timeLimit = -5; // ✅ Đổi từ 15 phút thành 5 phút
+
+    console.log("🔄 Auto-cancel: Found statuses -", {
+      pending: pendingStatus.StatusId,
+      cancelled: cancelledStatus.StatusId,
+    });
+    const timeLimit = 5; // ✅ Hủy đơn cũ hơn 5 phút
     const [affectedRows] = await Orders.update(
       { StatusId: cancelledStatus.StatusId },
       {
@@ -432,7 +457,7 @@ exports.autoCancelPendingOrders = async () => {
           StatusId: pendingStatus.StatusId,
           OrderDate: {
             [Op.lt]: sequelize.literal(
-              `NOW() + interval '${timeLimit} minutes'`
+              `NOW() - interval '${timeLimit} minutes'`
             ),
           },
         },
@@ -457,54 +482,121 @@ exports.cancelPendingOrder = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
     const { orderId } = req.params;
-    
+
+    // ✅ Log request info
+    console.log("📥 CANCEL PENDING ORDER REQUEST:", {
+      orderId,
+      userId: req.user?.id,
+      userEmail: req.user?.email,
+    });
+
     // Tìm đơn hàng
     const order = await Orders.findOne({
-      where: { 
+      where: {
         OrderId: parseInt(orderId),
-        UserId: req.user.id // Chỉ cho phép hủy đơn của chính mình
+        UserId: req.user.id, // Chỉ cho phép hủy đơn của chính mình
       },
-      transaction
+      transaction,
     });
+
+    console.log(
+      "🔍 Found order:",
+      order
+        ? {
+            OrderId: order.OrderId,
+            StatusId: order.StatusId,
+            UserId: order.UserId,
+          }
+        : "NOT FOUND"
+    );
 
     if (!order) {
       await transaction.rollback();
+      console.log("❌ Order not found for userId:", req.user.id);
       return res.status(404).json({
         success: false,
-        message: "Không tìm thấy đơn hàng"
+        message: "Không tìm thấy đơn hàng",
       });
     }
 
     // Kiểm tra trạng thái đơn hàng
-    const orderStatus = await OrderStatus.findByPk(order.StatusId, { transaction });
-    
-    // Chỉ cho phép hủy đơn "Chưa hoàn tất"
-    if (orderStatus.StatusName !== "Chưa hoàn tất") {
-      await transaction.rollback();
-      return res.status(400).json({
-        success: false,
-        message: "Không thể hủy đơn hàng này. Chỉ có thể hủy đơn chưa hoàn tất."
-      });
-    }
-
-    // Cập nhật trạng thái sang "Đã hủy"
-    const [cancelledStatus] = await OrderStatus.findOrCreate({
-      where: { StatusName: "Đã hủy" },
-      defaults: { StatusName: "Đã hủy" },
+    const orderStatus = await OrderStatus.findByPk(order.StatusId, {
       transaction,
     });
 
+    console.log(
+      "📊 Order status:",
+      orderStatus
+        ? {
+            StatusId: orderStatus.StatusId,
+            StatusName: orderStatus.StatusName,
+          }
+        : "NOT FOUND"
+    );
+
+    // ✅ Kiểm tra orderStatus tồn tại trước
+    if (!orderStatus) {
+      await transaction.rollback();
+      console.log("❌ OrderStatus not found for StatusId:", order.StatusId);
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy trạng thái đơn hàng",
+      });
+    }
+
+    // Chỉ cho phép hủy đơn "Chưa hoàn tất"
+    if (orderStatus.StatusName !== "Chưa hoàn tất") {
+      await transaction.rollback();
+      console.log(
+        "❌ Cannot cancel order with status:",
+        orderStatus.StatusName
+      );
+      return res.status(400).json({
+        success: false,
+        message: `Không thể hủy đơn hàng này. Trạng thái hiện tại: ${orderStatus.StatusName}. Chỉ có thể hủy đơn chưa hoàn tất.`,
+      });
+    }
+
+    // ✅ Tìm trạng thái "Đã hủy" có sẵn trong DB (StatusId = 5)
+    const cancelledStatus = await OrderStatus.findOne({
+      where: { StatusName: "Đã hủy" },
+      transaction,
+    });
+
+    if (!cancelledStatus) {
+      await transaction.rollback();
+      console.error("❌ Status 'Đã hủy' not found in database!");
+      return res.status(500).json({
+        success: false,
+        message: "Lỗi hệ thống: Không tìm thấy trạng thái 'hủy'",
+      });
+    }
+
+    console.log(
+      "🔄 Updating order to cancelled status:",
+      cancelledStatus.StatusId
+    );
+
     await order.update({ StatusId: cancelledStatus.StatusId }, { transaction });
-    
+
     await transaction.commit();
-    
+
+    console.log("✅ Order cancelled successfully:", orderId);
+
     res.json({
       success: true,
-      message: "Đã hủy đơn hàng thành công"
+      message: "Đã hủy đơn hàng thành công",
     });
   } catch (err) {
-    await transaction.rollback();
-    console.error("CANCEL PENDING ORDER ERROR:", err);
+    if (transaction && !transaction.finished) {
+      await transaction.rollback();
+    }
+    console.error("❌ CANCEL PENDING ORDER ERROR:", {
+      message: err.message,
+      stack: err.stack,
+      orderId: req.params?.orderId,
+      userId: req.user?.id,
+    });
     res.status(500).json({
       success: false,
       message: "Lỗi khi hủy đơn hàng",
