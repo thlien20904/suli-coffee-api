@@ -24,9 +24,8 @@ const sequelize = new Sequelize(
         process.env.DB_SSL === "true"
           ? { require: true, rejectUnauthorized: false }
           : false,
-      useUTC: false,
     },
-    timezone: "+07:00",
+    timezone: "+00:00",
     pool: {
       max: 3, // Giảm xuống 3 để tránh vượt giới hạn Supabase
       min: 1, // Giữ ít nhất 1 connection
