@@ -24,6 +24,7 @@ const sequelize = new Sequelize(
         process.env.DB_SSL === "true"
           ? { require: true, rejectUnauthorized: false }
           : false,
+      useUTC: false,
     },
     timezone: "+07:00",
     pool: {
